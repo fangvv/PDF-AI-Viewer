@@ -220,6 +220,7 @@ class PdfViewer(QScrollArea):
     textSelected = pyqtSignal(str)
     textSelectedAt = pyqtSignal(str, object)  # 文本, 全局坐标 QPoint
     linkClicked = pyqtSignal(str)
+    zoomChanged = pyqtSignal(float)  # 缩放比例变化（Ctrl+滚轮）
 
     # 缩放模式
     FIT_NONE = 0      # 固定百分比
@@ -257,6 +258,21 @@ class PdfViewer(QScrollArea):
         # 适合宽度/页面模式下，窗口大小变化时自动重新适配（防抖）
         if self.fit_mode != self.FIT_NONE and self.page_widgets:
             self._fit_timer.start()
+
+    def wheelEvent(self, event):
+        # Ctrl + 滚轮：缩放（前推放大，后推缩小）
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta == 0:
+                return
+            step = 10
+            new_pct = int(round(self.zoom * 100)) + (step if delta > 0 else -step)
+            new_pct = max(25, min(new_pct, 400))
+            self.set_zoom(new_pct / 100.0)
+            self.zoomChanged.emit(self.zoom)
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def load_document(self, path: str):
         self.doc = fitz.open(path)
@@ -319,15 +335,39 @@ class PdfViewer(QScrollArea):
         self.horizontalScrollBar().setEnabled(False)
         self.pageChanged.emit(1, 1)
 
+    def _capture_position(self):
+        """记录当前页及其在页内的相对位置（0~1），用于缩放后恢复。"""
+        if not self.page_widgets:
+            return None
+        value = self.verticalScrollBar().value()
+        for i, w in enumerate(self.page_widgets):
+            if w.y() <= value < w.y() + w.height():
+                ratio = (value - w.y()) / w.height() if w.height() else 0.0
+                return i, ratio
+        return None
+
+    def _restore_position(self, pos):
+        """根据记录的 (页索引, 页内相对位置) 恢复滚动位置。"""
+        if pos is None or not self.page_widgets:
+            return
+        i, ratio = pos
+        if i < 0 or i >= len(self.page_widgets):
+            return
+        w = self.page_widgets[i]
+        self.verticalScrollBar().setValue(int(w.y() + ratio * w.height()))
+
     def set_zoom(self, zoom: float):
         """设置固定百分比缩放。"""
         self.fit_mode = self.FIT_NONE
         self.zoom = zoom
+        pos = self._capture_position()
         for w in self.page_widgets:
             w.set_zoom(zoom)
         # 强制布局更新，确保 w.y() 正确
         self._container.adjustSize()
         self._layout.activate()
+        # 恢复缩放前的阅读位置
+        self._restore_position(pos)
         # 延迟到布局更新后再渲染
         QTimer.singleShot(0, self._render_visible)
 
@@ -358,11 +398,14 @@ class PdfViewer(QScrollArea):
             zoom = min((vw - 20) / pw, (vh - 20) / ph)
         zoom = max(0.1, min(zoom, 5.0))
         self.zoom = zoom
+        pos = self._capture_position()
         for w in self.page_widgets:
             w.set_zoom(zoom)
         # 强制布局更新，确保 w.y() 正确
         self._container.adjustSize()
         self._layout.activate()
+        # 恢复缩放前的阅读位置
+        self._restore_position(pos)
         # 延迟到布局更新后再渲染
         QTimer.singleShot(0, self._render_visible)
 

@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
         self.viewer.textSelected.connect(self._on_text_selected)
         self.viewer.textSelectedAt.connect(self._on_text_selected_at)
         self.viewer.linkClicked.connect(self._on_link_clicked)
+        self.viewer.zoomChanged.connect(self._on_viewer_zoom_changed)
 
         # 浮动翻译按钮（刷选文本后出现在鼠标附近）
         self.float_btn = QPushButton("翻译")
@@ -633,6 +634,17 @@ class MainWindow(QMainWindow):
         zoom = value / 100.0
         self.viewer.set_zoom(zoom)
         self.zoom_label.setText(f"{value}%")
+
+    def _on_viewer_zoom_changed(self, zoom):
+        """Ctrl+滚轮缩放后，同步工具栏的缩放模式与滑块。"""
+        # 切换到百分比模式
+        self.zoom_mode.setCurrentIndex(2)
+        pct = int(round(zoom * 100))
+        # 避免触发 valueChanged 循环
+        self.zoom_slider.blockSignals(True)
+        self.zoom_slider.setValue(pct)
+        self.zoom_slider.blockSignals(False)
+        self.zoom_label.setText(f"{pct}%")
 
     def _on_text_selected(self, text):
         self._selected_text = text

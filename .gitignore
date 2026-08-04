@@ -1,0 +1,26 @@
+# Python 缓存 / Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境 / Virtual environments
+venv/
+.venv/
+env/
+
+# 构建产物 / Build artifacts
+build/
+dist/
+*.spec
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 系统文件 / OS files
+.DS_Store
+Thumbs.db
+
+# 日志 / Logs
+*.log
