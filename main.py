@@ -803,6 +803,15 @@ class MainWindow(QMainWindow):
         self.viewer.clear_document()
         self.current_pdf = None
         self.setWindowTitle("PDF 阅读翻译器")
+        # 重置翻译相关状态
+        self._selected_text = ""
+        self.translate_btn.setEnabled(False)
+        self.float_btn.hide()
+        self.result_view.clear()
+        self.result_view.setPlaceholderText(
+            "在左侧 PDF 中用鼠标刷选文本，\n"
+            "然后点击「翻译选中内容」或按 Ctrl+T 翻译。"
+        )
         self.status.showMessage("已关闭 PDF")
 
     # ---------- 设置 ----------
