@@ -718,7 +718,7 @@ class MainWindow(QMainWindow):
     def _set_result_hint(self):
         """在翻译结果区显示灰色提示文字（未打开/未翻译时）。"""
         self.result_view.setHtml(
-            '<div style="color:#999999; font-size:14px; line-height:1.8;">'
+            f'<div style="color:#999999; font-size:{self.font_size}px; line-height:1.8;">'
             "在左侧 PDF 中刷选文本，<br>"
             "点击「翻译选中内容」或按 Ctrl+T 翻译。"
             "</div>"
@@ -857,7 +857,8 @@ class MainWindow(QMainWindow):
         self.font_size = size
         font = self.result_view.font()
         font.setPointSize(size)
-        self.result_view.setFont(font)
+        # 必须设置到 document 上，setFont() 不会改变已显示/后续 setPlainText 的字体
+        self.result_view.document().setDefaultFont(font)
         self.font_size_label.setText(str(size))
 
     # ---------- 关闭 ----------
