@@ -256,10 +256,28 @@ class MainWindow(QMainWindow):
         font_bar.addWidget(QLabel("字体大小"))
         self.font_small_btn = QPushButton("A-")
         self.font_small_btn.setFixedWidth(40)
+        self.font_small_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #ffffff; color: #333333;"
+            "  border: 1px solid #c0c0c0; border-radius: 4px;"
+            "  padding: 2px 0; font-size: 14px; font-weight: bold;"
+            "}"
+            "QPushButton:hover { background-color: #e8f0fe; border-color: #4a90d9; }"
+            "QPushButton:pressed { background-color: #d0e0f5; }"
+        )
         self.font_small_btn.clicked.connect(lambda: self._adjust_font(-1))
         font_bar.addWidget(self.font_small_btn)
         self.font_big_btn = QPushButton("A+")
         self.font_big_btn.setFixedWidth(40)
+        self.font_big_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #ffffff; color: #333333;"
+            "  border: 1px solid #c0c0c0; border-radius: 4px;"
+            "  padding: 2px 0; font-size: 14px; font-weight: bold;"
+            "}"
+            "QPushButton:hover { background-color: #e8f0fe; border-color: #4a90d9; }"
+            "QPushButton:pressed { background-color: #d0e0f5; }"
+        )
         self.font_big_btn.clicked.connect(lambda: self._adjust_font(1))
         font_bar.addWidget(self.font_big_btn)
         self.font_size_label = QLabel("14")
@@ -284,10 +302,7 @@ class MainWindow(QMainWindow):
 
         self.result_view = QTextEdit()
         self.result_view.setReadOnly(True)
-        self.result_view.setPlaceholderText(
-            "在左侧 PDF 中用鼠标刷选文本，\n"
-            "然后点击「翻译选中内容」或按 Ctrl+T 翻译。"
-        )
+        self._set_result_hint()
         right_layout.addWidget(self.result_view, 1)
 
         # 分栏
@@ -700,6 +715,15 @@ class MainWindow(QMainWindow):
         self.translate_btn.setEnabled(True)
         self.status.showMessage("翻译失败")
 
+    def _set_result_hint(self):
+        """在翻译结果区显示灰色提示文字（未打开/未翻译时）。"""
+        self.result_view.setHtml(
+            '<div style="color:#999999; font-size:14px; line-height:1.8;">'
+            "在左侧 PDF 中刷选文本，<br>"
+            "点击「翻译选中内容」或按 Ctrl+T 翻译。"
+            "</div>"
+        )
+
     def _summarize_current(self):
         """对当前页进行 AI 总结。"""
         if not self.viewer.page_widgets:
@@ -766,11 +790,7 @@ class MainWindow(QMainWindow):
         self._selected_text = ""
         self.translate_btn.setEnabled(False)
         self.float_btn.hide()
-        self.result_view.clear()
-        self.result_view.setPlaceholderText(
-            "在左侧 PDF 中用鼠标刷选文本，\n"
-            "然后点击「翻译选中内容」或按 Ctrl+T 翻译。"
-        )
+        self._set_result_hint()
 
         self.current_pdf = os.path.abspath(path)
         self.setWindowTitle(f"PDF 阅读翻译器 - {os.path.basename(path)}")
@@ -807,11 +827,7 @@ class MainWindow(QMainWindow):
         self._selected_text = ""
         self.translate_btn.setEnabled(False)
         self.float_btn.hide()
-        self.result_view.clear()
-        self.result_view.setPlaceholderText(
-            "在左侧 PDF 中用鼠标刷选文本，\n"
-            "然后点击「翻译选中内容」或按 Ctrl+T 翻译。"
-        )
+        self._set_result_hint()
         self.status.showMessage("已关闭 PDF")
 
     # ---------- 设置 ----------

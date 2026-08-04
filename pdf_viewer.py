@@ -14,7 +14,7 @@ import re
 
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QTimer
 from PyQt6.QtGui import QPainter, QColor, QPen, QImage, QPixmap
-from PyQt6.QtWidgets import QWidget, QScrollArea, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QScrollArea, QVBoxLayout, QLabel
 
 
 def clean_text(text: str) -> str:
@@ -242,6 +242,13 @@ class PdfViewer(QScrollArea):
         self.setWidgetResizable(False)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        # 空状态提示（未打开 PDF 时显示）
+        self._empty_label = QLabel("打开一个 PDF 文件开始阅读")
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setStyleSheet(
+            "color: #999999; font-size: 16px; background: transparent;"
+        )
+        self._layout.addWidget(self._empty_label)
         # 防抖定时器：滚动停止后渲染可见页
         self._render_timer = QTimer(self)
         self._render_timer.setSingleShot(True)
@@ -277,6 +284,7 @@ class PdfViewer(QScrollArea):
     def load_document(self, path: str):
         self.doc = fitz.open(path)
         self._clear_pages()
+        self._empty_label.hide()
         # 重新启用滚动条
         self.verticalScrollBar().setEnabled(True)
         self.horizontalScrollBar().setEnabled(True)
@@ -299,6 +307,7 @@ class PdfViewer(QScrollArea):
         """
         self.doc = fitz.open(path)
         self._clear_pages()
+        self._empty_label.hide()
         # 重新启用滚动条
         self.verticalScrollBar().setEnabled(True)
         self.horizontalScrollBar().setEnabled(True)
@@ -333,6 +342,8 @@ class PdfViewer(QScrollArea):
         self.verticalScrollBar().setEnabled(False)
         self.horizontalScrollBar().setValue(0)
         self.horizontalScrollBar().setEnabled(False)
+        # 显示空状态提示
+        self._empty_label.show()
         self.pageChanged.emit(1, 1)
 
     def _capture_position(self):
