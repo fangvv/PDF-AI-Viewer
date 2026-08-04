@@ -10,7 +10,6 @@ env/
 
 # 构建产物 / Build artifacts
 build/
-dist/
 *.spec
 
 # IDE / 编辑器
