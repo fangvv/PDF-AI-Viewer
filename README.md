@@ -89,9 +89,10 @@ python main.py
 3. The result appears on the right; you can also click "Translate Selected" or press `Ctrl + T`
 4. Choose a translation engine in the top-right (Auto / Microsoft Edge / LLM / MyMemory)
 5. Use the "A- / A+" buttons to adjust the translation font size
-6. Click "AI Summary" in the toolbar to summarize the current page; the result streams into a standalone window
-7. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
-8. After closing, reopening the same PDF resumes at your last reading position
+6. Zoom: choose Fit Page / Fit Width / Percentage in the toolbar, or hold `Ctrl` and scroll the mouse wheel for quick zoom
+7. Click "AI Summary" in the toolbar to summarize the current page; the result streams into a standalone window
+8. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
+9. After closing, reopening the same PDF resumes at your last reading position
 
 ---
 
