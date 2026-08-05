@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
     QToolBar,
     QStatusBar,
     QMenu,
+    QFrame,
     QProgressDialog,
 )
 
@@ -318,11 +319,18 @@ class MainWindow(QMainWindow):
         # 右侧翻译面板
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(6, 6, 6, 6)
+        right_layout.setContentsMargins(8, 8, 8, 8)
+        right_layout.setSpacing(10)
+
+        # 控制卡片：标题 + 字体调节 + 翻译引擎 + 翻译按钮
+        control_card = self._make_card()
+        control_layout = QVBoxLayout(control_card)
+        control_layout.setContentsMargins(12, 12, 12, 12)
+        control_layout.setSpacing(8)
 
         title = QLabel("翻译结果")
         title.setStyleSheet("font-weight: bold; font-size: 14px;")
-        right_layout.addWidget(title)
+        control_layout.addWidget(title)
 
         # 字体调节栏
         font_bar = QHBoxLayout()
@@ -356,7 +364,7 @@ class MainWindow(QMainWindow):
         self.font_size_label = QLabel("14")
         font_bar.addWidget(self.font_size_label)
         font_bar.addStretch(1)
-        right_layout.addLayout(font_bar)
+        control_layout.addLayout(font_bar)
 
         # 翻译引擎选择
         engine_bar = QHBoxLayout()
@@ -366,17 +374,24 @@ class MainWindow(QMainWindow):
         for name in self.translator.engine_names():
             self.engine_combo.addItem(name, name)
         engine_bar.addWidget(self.engine_combo, 1)
-        right_layout.addLayout(engine_bar)
+        control_layout.addLayout(engine_bar)
 
         self.translate_btn = QPushButton("翻译选中内容")
         self.translate_btn.setEnabled(False)
         self.translate_btn.clicked.connect(self._translate_current)
-        right_layout.addWidget(self.translate_btn)
+        control_layout.addWidget(self.translate_btn)
 
+        right_layout.addWidget(control_card)
+
+        # 结果卡片：翻译结果区
+        result_card = self._make_card()
+        result_layout = QVBoxLayout(result_card)
+        result_layout.setContentsMargins(12, 12, 12, 12)
         self.result_view = QTextEdit()
         self.result_view.setReadOnly(True)
         self._set_result_hint()
-        right_layout.addWidget(self.result_view, 1)
+        result_layout.addWidget(self.result_view)
+        right_layout.addWidget(result_card, 1)
 
         # 分栏
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -386,6 +401,20 @@ class MainWindow(QMainWindow):
         self.splitter.setStretchFactor(1, 2)
         self.splitter.setSizes([700, 500])
         self.setCentralWidget(self.splitter)
+
+    def _make_card(self) -> QFrame:
+        """创建一个圆角卡片容器（带阴影）。"""
+        from PyQt6.QtWidgets import QFrame, QGraphicsDropShadowEffect
+        from PyQt6.QtGui import QColor
+        card = QFrame()
+        card.setObjectName("card")
+        # 阴影效果
+        shadow = QGraphicsDropShadowEffect(card)
+        shadow.setBlurRadius(12)
+        shadow.setOffset(0, 2)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        card.setGraphicsEffect(shadow)
+        return card
 
     def _build_menubar(self):
         menubar = self.menuBar()
@@ -742,6 +771,11 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.status.showMessage("请打开一个 PDF 文件")
 
+        # 左侧：翻译引擎状态指示
+        self.engine_status_label = QLabel("引擎：自动")
+        self.engine_status_label.setStyleSheet("color: #4a90d9; padding: 0 8px;")
+        self.status.addWidget(self.engine_status_label)
+
         # 右下角显示当前日期和时间
         self.datetime_label = QLabel()
         self.status.addPermanentWidget(self.datetime_label)
@@ -867,6 +901,14 @@ class MainWindow(QMainWindow):
         self.float_btn.move(x, y)
         self.float_btn.show()
         self.float_btn.raise_()
+        # 淡入动画
+        from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+        self._float_anim = QPropertyAnimation(self.float_btn, b"windowOpacity", self)
+        self._float_anim.setDuration(150)
+        self._float_anim.setStartValue(0.0)
+        self._float_anim.setEndValue(1.0)
+        self._float_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._float_anim.start()
 
     def _on_link_clicked(self, url: str):
         """点击 PDF 链接时用系统浏览器打开。"""
@@ -886,17 +928,21 @@ class MainWindow(QMainWindow):
         if not text:
             return
         engine = self.engine_combo.currentData()
+        engine_name = self.engine_combo.currentText()
         self.result_view.setPlainText("翻译中...")
         self.translate_btn.setEnabled(False)
         self.float_btn.hide()
+        self.engine_status_label.setText(f"引擎：{engine_name} · 翻译中...")
         self.worker = TranslateWorker(self.translator, text, engine)
         self.worker.finished.connect(self._on_translate_done)
         self.worker.failed.connect(self._on_translate_failed)
         self.worker.start()
 
     def _on_translate_done(self, result):
-        self.result_view.setPlainText(result)
+        # 用 Markdown 渲染翻译结果（支持加粗/标题/列表/代码块等）
+        self.result_view.setMarkdown(result)
         self.translate_btn.setEnabled(True)
+        self.engine_status_label.setText(f"引擎：{self.engine_combo.currentText()}")
         self.status.showMessage("翻译完成")
 
     def _on_translate_failed(self, error):
@@ -1215,6 +1261,11 @@ _APP_STYLE = """
 QMainWindow {
     background-color: #f5f6fa;
 }
+QFrame#card {
+    background-color: #ffffff;
+    border: 1px solid #e4e6eb;
+    border-radius: 10px;
+}
 QToolBar {
     background-color: #ffffff;
     border-bottom: 1px solid #e0e0e0;
@@ -1304,10 +1355,12 @@ QPushButton:disabled {
 QTextEdit {
     background-color: #ffffff;
     border: 1px solid #d0d0d0;
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 8px;
     font-size: 14px;
     color: #222222;
+    selection-background-color: #4a90d9;
+    selection-color: #ffffff;
 }
 QScrollArea {
     background-color: #e8e8e8;
@@ -1366,6 +1419,11 @@ QSplitter::handle:hover {
 _APP_STYLE_DARK = """
 QMainWindow {
     background-color: #1e1e1e;
+}
+QFrame#card {
+    background-color: #2d2d2d;
+    border: 1px solid #3a3a3a;
+    border-radius: 10px;
 }
 QToolBar {
     background-color: #2d2d2d;
@@ -1458,10 +1516,12 @@ QPushButton:disabled {
 QTextEdit {
     background-color: #252526;
     border: 1px solid #3a3a3a;
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 8px;
     font-size: 14px;
     color: #dddddd;
+    selection-background-color: #4a90d9;
+    selection-color: #ffffff;
 }
 QScrollArea {
     background-color: #2b2b2b;

@@ -27,8 +27,8 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🌙 **日间/夜间主题**：设置菜单可切换日间与夜间模式，夜间模式下 PDF 页面自动反色（白底变黑底），晚上读论文不刺眼
 - ⌨️ **快捷键**：`Ctrl + / Ctrl -` 调节缩放，`Ctrl + L` 切换全屏，`Ctrl + T` 翻译
 - 🔐 **API Key 安全存储**：大模型 Key 存入 Windows 凭据管理器（keyring），不落盘明文
-- 🕐 **状态栏日期时间**：右下角实时显示当前日期和时间
-- 🎨 **界面美化**：自定义 QSS 样式、可调翻译字体、内置 Logo、关于对话框（含官网链接）
+- 🕐 **状态栏日期时间**：右下角实时显示当前日期和时间，左侧显示当前翻译引擎状态
+- 🎨 **界面美化**：右侧面板卡片化（圆角 + 阴影）、翻译结果 Markdown 渲染、浮动按钮淡入动画、可调翻译字体、内置 Logo、关于对话框（含官网链接）
 
 ---
 
@@ -47,8 +47,8 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🌙 **Light/Dark theme**: switch between light and dark modes in the Settings menu; in dark mode the PDF pages are automatically inverted (white background becomes black) for comfortable night reading
 - ⌨️ **Shortcuts**: `Ctrl + / Ctrl -` to zoom, `Ctrl + L` to toggle fullscreen, `Ctrl + T` to translate
 - 🔐 **Secure API key storage**: LLM key is stored in the Windows Credential Manager (keyring), never in plaintext
-- 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner
-- 🎨 **Polished UI**: custom QSS styling, adjustable translation font, built-in logo, About dialog (with website link)
+- 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner, plus the active translation engine on the left
+- 🎨 **Polished UI**: card-based right panel (rounded corners + shadow), Markdown rendering for translation results, fade-in animation for the floating button, adjustable translation font, built-in logo, About dialog (with website link)
 
 ---
 

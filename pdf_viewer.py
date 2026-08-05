@@ -43,13 +43,13 @@ class PdfPageWidget(QWidget):
     linkClicked = pyqtSignal(str)
     internalLinkClicked = pyqtSignal(int, object)  # 目标页索引(0-based), 目标矩形
 
-    def __init__(self, page: fitz.Page, zoom: float, parent=None):
+    def __init__(self, page: fitz.Page, zoom: float, theme: str = "light", parent=None):
         super().__init__(parent)
         self.page = page
         self.zoom = zoom
         self.pixmap = None
         self._rendered = False
-        self.theme = "light"  # 主题：light / dark
+        self.theme = theme  # 主题：light / dark
         # 先按缩放后的尺寸占位，保证布局正确
         rect = page.rect
         self.setFixedSize(int(rect.width * zoom), int(rect.height * zoom))
@@ -311,6 +311,7 @@ class PdfViewer(QScrollArea):
         self.doc = None
         self.zoom = 1.5
         self.fit_mode = self.FIT_NONE
+        self.theme = "light"  # 当前主题，新建页面时继承
         self.page_widgets = []
         self._container = QWidget()
         self._layout = QVBoxLayout(self._container)
@@ -369,7 +370,7 @@ class PdfViewer(QScrollArea):
         self.horizontalScrollBar().setEnabled(True)
         # 只创建占位 widget，不渲染位图
         for page in self.doc:
-            w = PdfPageWidget(page, self.zoom)
+            w = PdfPageWidget(page, self.zoom, self.theme)
             w.textSelected.connect(self.textSelected)
             w.textSelectedAt.connect(self.textSelectedAt)
             w.linkClicked.connect(self.linkClicked)
@@ -393,7 +394,7 @@ class PdfViewer(QScrollArea):
         self.horizontalScrollBar().setEnabled(True)
         total = self.doc.page_count
         for i, page in enumerate(self.doc):
-            w = PdfPageWidget(page, self.zoom)
+            w = PdfPageWidget(page, self.zoom, self.theme)
             w.textSelected.connect(self.textSelected)
             w.textSelectedAt.connect(self.textSelectedAt)
             w.linkClicked.connect(self.linkClicked)
@@ -439,6 +440,7 @@ class PdfViewer(QScrollArea):
 
     def set_theme(self, theme: str):
         """设置主题（light/dark）：对已加载的 PDF 页面重新渲染。"""
+        self.theme = theme
         for w in self.page_widgets:
             w.set_theme(theme)
         # 重新渲染当前可见页
