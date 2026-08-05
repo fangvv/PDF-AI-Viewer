@@ -10,7 +10,7 @@ import sys
 import webbrowser
 
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut, QIcon, QPixmap
+from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut, QIcon, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -128,19 +128,26 @@ class SummaryWindow(QWidget):
         """显示加载状态。"""
         self._accumulated = ""
         self.text_view.setPlainText("正在生成总结，请稍候...")
-        self.status_label.setText("")
+        self.status_label.setText("正在生成总结，请稍候...")
 
     def append_chunk(self, piece: str):
-        """流式追加一块内容。"""
+        """流式追加一块内容。
+
+        流式阶段用 QTextCursor 增量插入纯文本，避免每次 setMarkdown 全量重解析
+        导致界面卡顿；最终结果在 show_result 里一次性做 Markdown 渲染。
+        """
         self._accumulated += piece
-        try:
-            self.text_view.setMarkdown(self._accumulated)
-        except Exception:  # noqa: BLE001
-            self.text_view.setPlainText(self._accumulated)
+        # 若当前还是占位提示，先清空
+        if self.text_view.toPlainText() == "正在生成总结，请稍候...":
+            self.text_view.clear()
+            self.status_label.setText("正在输出中...")
+        cursor = self.text_view.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(piece)
+        self.text_view.setTextCursor(cursor)
         # 滚动到底部
         sb = self.text_view.verticalScrollBar()
         sb.setValue(sb.maximum())
-        self.text_view.update()
 
     def show_result(self, text: str):
         """显示总结结果（支持 Markdown 渲染）。"""
