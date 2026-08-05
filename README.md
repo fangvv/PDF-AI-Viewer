@@ -52,8 +52,8 @@ Requires Python 3.9+.
 
 ```bash
 # 克隆仓库 / Clone the repository
-git clone https://github.com/your-username/pdf-translator.git
-cd pdf_translator
+git clone https://github.com/fangvv/PDF-AI-Viewer.git
+cd PDF-AI-Viewer
 
 # 安装依赖 / Install dependencies
 pip install -r requirements.txt
@@ -122,6 +122,9 @@ pdf_translator/
 ├── settings.py      # 配置存储：阅读位置、最近历史、界面设置、大模型配置
 ├── make_logo.py     # Logo 生成脚本
 ├── requirements.txt # 依赖清单
+├── AGENTS.md        # 给 AI 助手/开发者的工程说明与约定
+├── LICENSE          # MIT 许可证
+├── dist/            # 打包产物（PDF阅读翻译器.exe）
 └── logo.ico / logo.png  # 应用图标
 ```
 
