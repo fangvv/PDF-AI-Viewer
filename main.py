@@ -9,7 +9,7 @@ import os
 import sys
 import webbrowser
 
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QTimer, QByteArray, pyqtSignal
 from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut, QIcon, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (
     QApplication,
@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QLineEdit,
     QSpinBox,
     QSlider,
     QComboBox,
@@ -154,12 +155,63 @@ class SummaryWindow(QWidget):
         if not text or not text.strip():
             self.text_view.setPlainText("（无总结结果）")
         else:
+            text = self._latex_to_unicode(text)
             try:
                 self.text_view.setMarkdown(text)
             except Exception:  # noqa: BLE001
                 self.text_view.setPlainText(text)
         self.status_label.setText("")
         self.text_view.update()
+
+    @staticmethod
+    def _latex_to_unicode(text: str) -> str:
+        """把常见的 LaTeX 数学公式转成可读的 Unicode 纯文本（兜底处理）。
+
+        主要处理行内/块级公式定界符与常用命令，避免显示成原始 LaTeX 代码。
+        """
+        import re
+        # 去掉公式定界符：$$...$$、$...$、\(...\)、\[...\]
+        text = re.sub(r"\$\$(.+?)\$\$", r"\1", text, flags=re.S)
+        text = re.sub(r"\$(.+?)\$", r"\1", text, flags=re.S)
+        text = re.sub(r"\\\[(.+?)\\\]", r"\1", text, flags=re.S)
+        text = re.sub(r"\\\((.+?)\\\)", r"\1", text, flags=re.S)
+        # 常用 LaTeX 命令 → Unicode
+        replacements = {
+            r"\times": "×", r"\cdot": "·", r"\pm": "±", r"\mp": "∓",
+            r"\leq": "≤", r"\geq": "≥", r"\neq": "≠", r"\approx": "≈",
+            r"\infty": "∞", r"\alpha": "α", r"\beta": "β", r"\gamma": "γ",
+            r"\delta": "δ", r"\epsilon": "ε", r"\theta": "θ",
+            r"\lambda": "λ", r"\mu": "μ", r"\sigma": "σ", r"\omega": "ω",
+            r"\pi": "π", r"\sum": "∑", r"\prod": "∏", r"\int": "∫",
+            r"\sqrt": "√", r"\partial": "∂", r"\nabla": "∇",
+            r"\rightarrow": "→", r"\leftarrow": "←", r"\in": "∈",
+            r"\notin": "∉", r"\subset": "⊂", r"\subseteq": "⊆",
+            r"\cup": "∪", r"\cap": "∩", r"\forall": "∀", r"\exists": "∃",
+        }
+        for k, v in replacements.items():
+            text = text.replace(k, v)
+        # 上标：^{...} → Unicode 上标（仅数字/常见字母）
+        sup_map = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+                   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+                   "+": "⁺", "-": "⁻", "n": "ⁿ", "i": "ⁱ"}
+        def _sup(m):
+            inner = m.group(1)
+            return "".join(sup_map.get(c, c) for c in inner)
+        text = re.sub(r"\^\{([^{}]+)\}", _sup, text)
+        text = re.sub(r"\^([0-9+\-ni])", lambda m: sup_map.get(m.group(1), m.group(1)), text)
+        # 下标：_{...} → Unicode 下标（仅数字）
+        sub_map = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
+                   "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+                   "+": "₊", "-": "₋", "i": "ᵢ", "n": "ₙ"}
+        def _sub(m):
+            inner = m.group(1)
+            return "".join(sub_map.get(c, c) for c in inner)
+        text = re.sub(r"_\{([^{}]+)\}", _sub, text)
+        text = re.sub(r"_([0-9+\-in])", lambda m: sub_map.get(m.group(1), m.group(1)), text)
+        # 分数：\frac{a}{b} → (a)/(b)
+        text = re.sub(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1)/(\2)", text)
+        # 清理残留的反斜杠命令（保留未知命令原样，避免误删）
+        return text
 
     def show_error(self, error: str):
         """显示错误信息。"""
@@ -172,6 +224,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PDF 阅读翻译器")
         self.resize(1200, 800)
+        # 支持拖拽 PDF 文件到窗口打开
+        self.setAcceptDrops(True)
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.ico")
         if os.path.exists(icon_path):
@@ -185,6 +239,16 @@ class MainWindow(QMainWindow):
         self.current_pdf = None
         self.worker = None
         self.font_size = 14
+        # 搜索状态
+        self._search_results = []
+        self._search_index = -1
+        self._last_search_text = ""
+
+        # 窗口状态防抖保存（resize/move 后延迟写入，避免频繁写文件）
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(500)
+        self._save_timer.timeout.connect(self._save_window_state)
 
         self._build_ui()
         self._build_menubar()
@@ -353,6 +417,12 @@ class MainWindow(QMainWindow):
 
         # 帮助菜单
         help_menu = menubar.addMenu("帮助")
+        website_action = QAction("官网", self)
+        website_action.triggered.connect(
+            lambda: webbrowser.open("https://github.com/fangvv/PDF-AI-Viewer")
+        )
+        help_menu.addAction(website_action)
+        help_menu.addSeparator()
         about_action = QAction("关于", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
@@ -403,6 +473,15 @@ class MainWindow(QMainWindow):
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #555;")
         layout.addWidget(desc)
+
+        # 官网
+        website = QLabel(
+            '<a href="https://github.com/fangvv/PDF-AI-Viewer" style="color:#2d7ff9;">'
+            '官网：github.com/fangvv/PDF-AI-Viewer</a>'
+        )
+        website.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        website.setOpenExternalLinks(True)
+        layout.addWidget(website)
 
         # 联系方式
         contact = QLabel(
@@ -565,8 +644,8 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        # AI 总结（对当前页）
-        summary_action = QAction("AI 总结", self)
+        # AI 总结（整篇文档）
+        summary_action = QAction("全文总结", self)
         summary_action.triggered.connect(self._summarize_current)
         toolbar.addAction(summary_action)
 
@@ -583,6 +662,32 @@ class MainWindow(QMainWindow):
         self.page_spin.setSuffix(" 页")
         self.page_spin.valueChanged.connect(self._on_spin_changed)
         toolbar.addWidget(self.page_spin)
+
+        toolbar.addSeparator()
+
+        # 全文搜索
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("搜索...")
+        self.search_edit.setFixedWidth(160)
+        self.search_edit.returnPressed.connect(self._do_search)
+        toolbar.addWidget(self.search_edit)
+
+        search_btn = QPushButton("搜索")
+        search_btn.clicked.connect(self._do_search)
+        toolbar.addWidget(search_btn)
+
+        self.search_prev_btn = QPushButton("上一个")
+        self.search_prev_btn.clicked.connect(lambda: self._goto_search(-1))
+        self.search_prev_btn.setEnabled(False)
+        toolbar.addWidget(self.search_prev_btn)
+
+        self.search_next_btn = QPushButton("下一个")
+        self.search_next_btn.clicked.connect(lambda: self._goto_search(1))
+        self.search_next_btn.setEnabled(False)
+        toolbar.addWidget(self.search_next_btn)
+
+        self.search_count_label = QLabel("")
+        toolbar.addWidget(self.search_count_label)
 
         toolbar.addSeparator()
 
@@ -635,6 +740,52 @@ class MainWindow(QMainWindow):
 
     def _on_spin_changed(self, value):
         self.viewer.go_to_page(value)
+
+    def _do_search(self):
+        """执行全文搜索。
+
+        若搜索词与上次相同，则跳到下一个结果（相当于「下一个」）；
+        若搜索词变化，则重新搜索并跳到第一个结果。
+        """
+        text = self.search_edit.text().strip()
+        if not text or not self.current_pdf:
+            return
+        if text != self._last_search_text:
+            # 搜索词变化：重新搜索，跳到第一个
+            self._last_search_text = text
+            self._search_results = self.viewer.search(text)
+            self._search_index = -1
+            if self._search_results:
+                self.search_prev_btn.setEnabled(True)
+                self.search_next_btn.setEnabled(True)
+                self.search_count_label.setText(f"共 {len(self._search_results)} 处")
+                self._goto_search(1)
+            else:
+                self.search_prev_btn.setEnabled(False)
+                self.search_next_btn.setEnabled(False)
+                self.search_count_label.setText("未找到")
+                self.viewer.clear_search()
+                self.status.showMessage(f"未找到「{text}」")
+        else:
+            # 搜索词未变：跳到下一个结果
+            self._goto_search(1)
+
+    def _goto_search(self, step: int):
+        """跳转到下一个/上一个搜索结果。"""
+        if not self._search_results:
+            return
+        total = len(self._search_results)
+        self._search_index = (self._search_index + step) % total
+        page_index, rect = self._search_results[self._search_index]
+        # 滚动到对应页并让高亮矩形在视窗中垂直居中
+        self.viewer.scroll_to_rect(page_index, rect)
+        self.viewer.highlight_search(page_index, [rect])
+        self.search_count_label.setText(
+            f"{self._search_index + 1} / {total}"
+        )
+        self.status.showMessage(
+            f"第 {page_index + 1} 页，第 {self._search_index + 1} / {total} 处"
+        )
 
     def _on_zoom_mode_changed(self, index):
         if index == 0:  # 适合页面
@@ -732,15 +883,16 @@ class MainWindow(QMainWindow):
         )
 
     def _summarize_current(self):
-        """对当前页进行 AI 总结。"""
+        """对整篇文档进行 AI 总结。"""
         if not self.viewer.page_widgets:
             self.status.showMessage("请先打开一个 PDF 文件")
             return
-        text = self.viewer.current_page_text()
+        # 取全文（限制长度，避免超出大模型上下文）
+        text = self.viewer.document_text(max_chars=60000)
         if not text.strip():
-            self.status.showMessage("当前页没有可总结的文本")
+            self.status.showMessage("文档没有可总结的文本")
             return
-        page = self.viewer.current_page()
+        total_pages = len(self.viewer.page_widgets)
         # 显示总结窗口并进入加载状态
         self.summary_window.set_loading()
         self.summary_window.show()
@@ -752,7 +904,7 @@ class MainWindow(QMainWindow):
         self.summary_worker.finished.connect(self._on_summary_done)
         self.summary_worker.failed.connect(self._on_summary_failed)
         self.summary_worker.start()
-        self.status.showMessage(f"正在总结第 {page} 页...")
+        self.status.showMessage(f"正在总结全文（共 {total_pages} 页）...")
 
     def _on_summary_done(self, result):
         self.summary_window.show_result(result)
@@ -846,6 +998,15 @@ class MainWindow(QMainWindow):
         font_size = s.get("font_size")
         if font_size:
             self._set_font_size(font_size)
+        # 恢复窗口几何与最大化状态（延迟到窗口显示后生效）
+        geometry = s.get("window_geometry")
+        if geometry:
+            try:
+                self.restoreGeometry(QByteArray(bytes.fromhex(geometry)))
+            except (ValueError, TypeError):
+                pass
+        if s.get("window_maximized"):
+            QTimer.singleShot(0, self.showMaximized)
 
     def _save_settings(self):
         # 先读取已有配置，避免覆盖掉大模型设置（llm_base_url / llm_model）
@@ -853,6 +1014,21 @@ class MainWindow(QMainWindow):
         s["splitter_sizes"] = self.splitter.sizes()
         s["font_size"] = self.font_size
         settings.save_settings(s)
+
+    def _save_window_state(self):
+        """保存窗口几何与最大化状态。"""
+        s = settings.load_settings()
+        s["window_geometry"] = bytes(self.saveGeometry()).hex()
+        s["window_maximized"] = self.isMaximized()
+        settings.save_settings(s)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._save_timer.start()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._save_timer.start()
 
     def _adjust_font(self, delta: int):
         """调整翻译字体大小。"""
@@ -868,6 +1044,22 @@ class MainWindow(QMainWindow):
         self.result_view.document().setDefaultFont(font)
         self.font_size_label.setText(str(size))
 
+    # ---------- 拖拽打开 ----------
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile() and url.toLocalFile().lower().endswith(".pdf"):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            if url.isLocalFile() and url.toLocalFile().lower().endswith(".pdf"):
+                self.load_pdf(url.toLocalFile())
+                event.acceptProposedAction()
+                return
+
     # ---------- 关闭 ----------
     def closeEvent(self, event):
         # 自动记录阅读位置
@@ -878,6 +1070,7 @@ class MainWindow(QMainWindow):
                 self.viewer.verticalScrollBar().value(),
             )
         self._save_settings()
+        self._save_window_state()
         event.accept()
 
 

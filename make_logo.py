@@ -1,7 +1,8 @@
 """生成应用 Logo（PDF + 翻译意象），保存为 .ico 文件。"""
+import os
 import sys
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QLinearGradient, QPen, QBrush
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont, QLinearGradient, QPen, QBrush, QIcon
 from PyQt6.QtCore import Qt, QRectF, QPointF
 
 
@@ -66,13 +67,65 @@ def draw_logo(size: int) -> QPixmap:
     return pixmap
 
 
+def _build_ico(images: list, sizes: list, out_path: str) -> None:
+    """手动构造多尺寸 ICO 文件（BMP 格式，Windows 标题栏/任务栏均能正确显示）。"""
+    import struct
+    from PIL import Image
+
+    # 每个尺寸生成 32 位 BGRA 的 BMP 数据
+    bmp_data = []
+    for img in images:
+        img = img.convert("RGBA")
+        w, h = img.size
+        # 32 位 BGRA 位图（每行 4 字节对齐）
+        raw = img.tobytes("raw", "BGRA")
+        row_size = w * 4
+        stride = ((row_size + 3) // 4) * 4
+        padded = bytearray()
+        for y in range(h):
+            padded += raw[y * row_size:(y + 1) * row_size]
+            padded += b"\x00" * (stride - row_size)
+        # BITMAPINFOHEADER (40 字节) + 像素数据
+        header = struct.pack(
+            "<IiiHHIIiiII", 40, w, h * 2, 1, 32, 0, len(padded), 0, 0, 0, 0
+        )
+        bmp_data.append(header + bytes(padded))
+
+    # ICO 文件头
+    count = len(sizes)
+    header = struct.pack("<HHH", 0, 1, count)
+    # 目录项
+    entries = b""
+    offset = 6 + 16 * count
+    for i, size in enumerate(sizes):
+        b = 0 if size >= 256 else size
+        data = bmp_data[i]
+        entries += struct.pack(
+            "<BBBBHHII", b, b, 0, 0, 1, 32, len(data), offset
+        )
+        offset += len(data)
+    with open(out_path, "wb") as f:
+        f.write(header + entries + b"".join(bmp_data))
+
+
 def main():
     app = QApplication(sys.argv)
     # 生成多尺寸图标
     pixmap = draw_logo(256)
     pixmap.save("logo.png", "PNG")
-    # 保存为 ico（含多个尺寸）
-    pixmap.save("logo.ico", "ICO")
+    # 生成多尺寸 ico（Windows 标题栏/任务栏需要小尺寸图标）
+    from PIL import Image
+    sizes = [16, 24, 32, 48, 64, 128, 256]
+    images = []
+    for size in sizes:
+        pm = draw_logo(size)
+        pm.save(f"_logo_{size}.png", "PNG")
+        images.append(Image.open(f"_logo_{size}.png"))
+    _build_ico(images, sizes, "logo.ico")
+    for img in images:
+        img.close()
+    for size in sizes:
+        os.remove(f"_logo_{size}.png")
     print("Logo 已生成：logo.png / logo.ico")
 
 

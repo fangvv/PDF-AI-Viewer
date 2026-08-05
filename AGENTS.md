@@ -72,6 +72,20 @@ pyinstaller --noconfirm "PDF阅读翻译器.spec"
 - 翻译结果区提示文字 `_set_result_hint()` 用 HTML，字号需跟随 `self.font_size`，不要写死。
 - 全局样式表 `_APP_STYLE` 定义在 `main.py` 底部。
 - 大模型 API Key 通过 keyring 存 Windows 凭据管理器，不落盘明文。
+- **窗口状态保存**：`saveGeometry()` 返回 `QByteArray`，**没有 `.hex()` 方法**（那是 Python
+  `bytes` 的方法）。必须用 `bytes(self.saveGeometry()).hex()` 保存、用
+  `restoreGeometry(QByteArray(bytes.fromhex(hex)))` 恢复（见 `main.py` 的
+  `_save_window_state` / `_restore_settings`）。窗口状态在 `resizeEvent`/`moveEvent` 里用
+  QTimer 防抖实时保存，`closeEvent` 里也保存。
+- **全文总结**：`_summarize_current` 用 `viewer.document_text(max_chars=60000)` 取整篇文档
+  文本（按页拼接、带页标记、截断防超上下文），不是单页。
+- **LaTeX 公式显示**：`QTextEdit.setMarkdown` 不支持 LaTeX。总结 prompt 已要求模型用
+  Unicode 数学符号；显示端 `SummaryWindow._latex_to_unicode` 做兜底转换（去 `$...$` 定界符、
+  `\frac`→`(a)/(b)`、常用命令→Unicode、上下标）。注意 replacements 的 key 用**单反斜杠**
+  raw string（`r"\alpha"`），不要写成 `r"\\alpha"`（那是两个反斜杠，匹配不到）。
+- **全文搜索**：`PdfViewer.search()` 用 `page.search_for()` 返回 `(page_index, rect)` 列表；
+  `scroll_to_rect()` 按 `w.y() + rect.y0*zoom - viewport_height/2` 让高亮垂直居中。
+  搜索词未变时再点「搜索」跳到下一个结果（见 `_do_search` 的 `_last_search_text` 逻辑）。
 
 ## 提交约定
 

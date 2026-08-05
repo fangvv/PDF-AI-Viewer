@@ -57,6 +57,8 @@ class PdfPageWidget(QWidget):
         self._sel_start = None
         self._sel_end = None
         self._sel_rects = []
+        # 搜索高亮矩形（PDF 坐标，绘制时乘 zoom）
+        self._search_rects = []
         # 页面链接（uri 链接）
         self._links = []
         for link in page.get_links():
@@ -117,6 +119,22 @@ class PdfPageWidget(QWidget):
             painter.setBrush(QColor(0, 120, 215, 80))
             for rect in self._sel_rects:
                 painter.drawRect(rect)
+        # 绘制搜索高亮（黄色）
+        if self._search_rects:
+            painter.setPen(QPen(QColor(255, 200, 0, 0)))
+            painter.setBrush(QColor(255, 220, 0, 120))
+            for rect in self._search_rects:
+                painter.drawRect(QRectF(
+                    rect.x0 * self.zoom,
+                    rect.y0 * self.zoom,
+                    (rect.x1 - rect.x0) * self.zoom,
+                    (rect.y1 - rect.y0) * self.zoom,
+                ))
+
+    def set_search_rects(self, rects):
+        """设置搜索高亮矩形（PDF 坐标），并重绘。"""
+        self._search_rects = list(rects)
+        self.update()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -483,6 +501,26 @@ class PdfViewer(QScrollArea):
         self.pageChanged.emit(page, len(self.page_widgets))
         self._render_visible()
 
+    def scroll_to_rect(self, page_index: int, rect):
+        """滚动到指定页（0-based）的矩形区域，使其在视窗中垂直居中。
+
+        考虑缩放比例（PDF 坐标 × zoom）与视窗高度，保证高亮内容完整可见。
+        """
+        if not self.page_widgets or page_index < 0 or page_index >= len(self.page_widgets):
+            return
+        w = self.page_widgets[page_index]
+        # 页面在容器中的 y + 矩形在页面内的 y（PDF 坐标 × zoom）
+        target_y = w.y() + rect.y0 * self.zoom
+        # 视窗高度的一半，让矩形垂直居中
+        view_h = self.viewport().height()
+        scroll = int(target_y - view_h / 2)
+        # 限制在有效滚动范围内
+        sb = self.verticalScrollBar()
+        scroll = max(sb.minimum(), min(scroll, sb.maximum()))
+        sb.setValue(scroll)
+        self.pageChanged.emit(page_index + 1, len(self.page_widgets))
+        self._render_visible()
+
     def current_page(self) -> int:
         if not self.page_widgets:
             return 1
@@ -499,6 +537,49 @@ class PdfViewer(QScrollArea):
         page = self.current_page()
         w = self.page_widgets[page - 1]
         return clean_text(w.page.get_text("text"))
+
+    def document_text(self, max_chars: int = 0) -> str:
+        """返回整个文档的文本（按页拼接，页间用换行分隔）。
+
+        max_chars > 0 时截断到该长度，避免超出大模型上下文限制。
+        """
+        if not self.page_widgets:
+            return ""
+        parts = []
+        total = 0
+        for i, w in enumerate(self.page_widgets):
+            page_text = clean_text(w.page.get_text("text"))
+            if not page_text:
+                continue
+            parts.append(f"【第 {i + 1} 页】\n{page_text}")
+            total += len(page_text)
+            if max_chars and total >= max_chars:
+                break
+        return "\n\n".join(parts)
+
+    def search(self, text: str) -> list:
+        """全文搜索，返回匹配列表 [(page_index, fitz.Rect), ...]（page_index 为 0-based）。"""
+        if not self.doc or not text:
+            return []
+        results = []
+        for i, w in enumerate(self.page_widgets):
+            rects = w.page.search_for(text)
+            for r in rects:
+                results.append((i, r))
+        return results
+
+    def highlight_search(self, page_index: int, rects: list):
+        """在指定页（0-based）高亮搜索匹配矩形，并清除其他页的高亮。"""
+        for i, w in enumerate(self.page_widgets):
+            if i == page_index:
+                w.set_search_rects(rects)
+            else:
+                w.set_search_rects([])
+
+    def clear_search(self):
+        """清除所有搜索高亮。"""
+        for w in self.page_widgets:
+            w.set_search_rects([])
 
     def scroll_to(self, offset: int):
         self.verticalScrollBar().setValue(offset)

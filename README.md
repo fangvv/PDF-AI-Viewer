@@ -16,7 +16,10 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🖱️ **鼠标刷选翻译**：按段落刷选文本，保持句子连续性，翻译效果更好
 - 🎯 **浮动翻译按钮**：刷选文本后，翻译按钮自动出现在鼠标附近，点击即可翻译，无需移动鼠标
 - 🌐 **多翻译引擎**：内置微软 Edge、通用 OpenAI 兼容大模型、MyMemory 三个接口，可自动回退或手动选择
-- 🤖 **AI 总结**：针对当前页调用大模型生成结构化总结，流式输出实时显示，独立可缩放窗口，支持 Markdown 渲染
+- 🤖 **全文总结**：对整篇论文调用大模型生成结构化总结（背景、方法、数据、结论、优缺点、后续方向），流式输出实时显示，独立可缩放窗口，支持 Markdown 渲染与公式显示
+- 🔍 **全文搜索**：关键词全文搜索，结果黄色高亮并自动垂直居中定位，支持上一个/下一个循环跳转
+- 📂 **拖拽打开**：直接把 PDF 文件拖到窗口即可打开
+- 🪟 **窗口状态记忆**：记住上次关闭时的窗口大小、位置与最大化状态
 - ⚙️ **大模型设置**：支持任意 OpenAI 兼容服务商（OpenAI、DeepSeek、智谱、硅基流动、本地 Ollama 等），模型名可从服务商下拉拉取
 - 📌 **阅读位置记忆**：自动记录每个 PDF 的阅读位置，下次打开自动跳转
 - 🕘 **最近打开历史**：记录最近打开的 10 个文件，支持一键清空
@@ -24,7 +27,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - ⌨️ **快捷键**：`Ctrl + / Ctrl -` 调节缩放，`Ctrl + L` 切换全屏，`Ctrl + T` 翻译
 - 🔐 **API Key 安全存储**：大模型 Key 存入 Windows 凭据管理器（keyring），不落盘明文
 - 🕐 **状态栏日期时间**：右下角实时显示当前日期和时间
-- 🎨 **界面美化**：自定义 QSS 样式、可调翻译字体、内置 Logo、关于对话框
+- 🎨 **界面美化**：自定义 QSS 样式、可调翻译字体、内置 Logo、关于对话框（含官网链接）
 
 ---
 
@@ -32,7 +35,10 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🖱️ **Select-to-translate**: selects text by paragraph to preserve sentence continuity for better translations
 - 🎯 **Floating translate button**: appears near the mouse after selecting text; click to translate without moving the mouse
 - 🌐 **Multiple translation engines**: built-in Microsoft Edge, generic OpenAI-compatible LLM, and MyMemory, with auto-fallback or manual selection
-- 🤖 **AI summary**: summarizes the current page via LLM with streaming output, shown in a resizable standalone window with Markdown rendering
+- 🤖 **Full-document summary**: summarizes the entire paper via LLM (background, methods, data, findings, pros/cons, future work) with streaming output, shown in a resizable standalone window with Markdown rendering and formula display
+- 🔍 **Full-text search**: keyword search across the whole document, results highlighted in yellow and auto-centered vertically, with prev/next cyclic navigation
+- 📂 **Drag & drop**: drag a PDF file onto the window to open it
+- 🪟 **Window state memory**: remembers window size, position, and maximized state from the last session
 - ⚙️ **LLM settings**: supports any OpenAI-compatible provider (OpenAI, DeepSeek, Zhipu, SiliconFlow, local Ollama, etc.); model names can be fetched from the provider
 - 📌 **Reading position memory**: automatically remembers the position of each PDF and resumes there next time
 - 🕘 **Recent files**: remembers the last 10 opened files, with one-click clear
@@ -40,7 +46,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - ⌨️ **Shortcuts**: `Ctrl + / Ctrl -` to zoom, `Ctrl + L` to toggle fullscreen, `Ctrl + T` to translate
 - 🔐 **Secure API key storage**: LLM key is stored in the Windows Credential Manager (keyring), never in plaintext
 - 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner
-- 🎨 **Polished UI**: custom QSS styling, adjustable translation font, built-in logo, About dialog
+- 🎨 **Polished UI**: custom QSS styling, adjustable translation font, built-in logo, About dialog (with website link)
 
 ---
 
@@ -72,27 +78,29 @@ python main.py
 
 ## 使用说明 / Usage
 
-1. 点击「打开 PDF」或使用 `Ctrl + O` 打开一个 PDF 文件
+1. 点击「打开 PDF」或使用 `Ctrl + O` 打开一个 PDF 文件（也可直接把 PDF 拖到窗口）
 2. 在左侧 PDF 中用鼠标刷选要翻译的文本，翻译按钮会出现在鼠标附近，点击即可翻译
 3. 翻译结果显示在右侧；也可点击「翻译选中内容」或按 `Ctrl + T`
 4. 可在右上角选择翻译引擎（自动 / 微软 Edge / 大模型 / MyMemory）
 5. 使用「A- / A+」按钮调节翻译字体大小
 6. 缩放：工具栏选择适合页面 / 适合宽度 / 百分比，或按住 `Ctrl` 滚动鼠标滚轮快速缩放
-7. 点击工具栏「AI 总结」对当前页生成总结，结果在独立窗口中流式显示
-8. 首次使用大模型翻译或总结前，请到「设置 → 大模型设置」填写接口地址、API Key 和模型名
-9. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置
+7. 点击工具栏「全文总结」对整篇论文生成总结，结果在独立窗口中流式显示
+8. 在工具栏搜索框输入关键词回车，即可全文搜索并高亮定位，支持「上一个 / 下一个」跳转
+9. 首次使用大模型翻译或总结前，请到「设置 → 大模型设置」填写接口地址、API Key 和模型名
+10. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置，并恢复窗口状态
 
 ---
 
-1. Click "Open PDF" or press `Ctrl + O` to open a PDF file
+1. Click "Open PDF" or press `Ctrl + O` to open a PDF file (or drag a PDF onto the window)
 2. Select the text you want to translate in the PDF on the left; a translate button appears near the mouse — click it to translate
 3. The result appears on the right; you can also click "Translate Selected" or press `Ctrl + T`
 4. Choose a translation engine in the top-right (Auto / Microsoft Edge / LLM / MyMemory)
 5. Use the "A- / A+" buttons to adjust the translation font size
 6. Zoom: choose Fit Page / Fit Width / Percentage in the toolbar, or hold `Ctrl` and scroll the mouse wheel for quick zoom
-7. Click "AI Summary" in the toolbar to summarize the current page; the result streams into a standalone window
-8. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
-9. After closing, reopening the same PDF resumes at your last reading position
+7. Click "Full-document Summary" in the toolbar to summarize the entire paper; the result streams into a standalone window
+8. Type a keyword in the toolbar search box and press Enter to search the whole document with highlighted, centered results; use "Prev / Next" to navigate
+9. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
+10. After closing, reopening the same PDF resumes at your last reading position and restores the window state
 
 ---
 
