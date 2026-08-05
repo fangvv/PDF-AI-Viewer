@@ -19,11 +19,12 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🤖 **全文总结**：对整篇论文调用大模型生成结构化总结（背景、方法、数据、结论、优缺点、后续方向），流式输出实时显示，独立可缩放窗口，支持 Markdown 渲染与公式显示
 - 🔍 **全文搜索**：关键词全文搜索，结果黄色高亮并自动垂直居中定位，支持上一个/下一个循环跳转
 - 📂 **拖拽打开**：直接把 PDF 文件拖到窗口即可打开
-- 🪟 **窗口状态记忆**：记住上次关闭时的窗口大小、位置与最大化状态
+- 🖥️ **窗口状态记忆**：记住上次关闭时的窗口大小、位置与最大化状态
 - ⚙️ **大模型设置**：支持任意 OpenAI 兼容服务商（OpenAI、DeepSeek、智谱、硅基流动、本地 Ollama 等），模型名可从服务商下拉拉取
 - 📌 **阅读位置记忆**：自动记录每个 PDF 的阅读位置，下次打开自动跳转
 - 🕘 **最近打开历史**：记录最近打开的 10 个文件，支持一键清空
-- 🔗 **PDF 链接可点击**：悬停显示手型光标，点击用系统浏览器打开
+- 🔗 **PDF 链接可点击**：悬停显示手型光标，点击用系统浏览器打开；正文中的参考文献引用（内部链接）点击可直接跳转到文末对应条目
+- 🌙 **日间/夜间主题**：设置菜单可切换日间与夜间模式，夜间模式下 PDF 页面自动反色（白底变黑底），晚上读论文不刺眼
 - ⌨️ **快捷键**：`Ctrl + / Ctrl -` 调节缩放，`Ctrl + L` 切换全屏，`Ctrl + T` 翻译
 - 🔐 **API Key 安全存储**：大模型 Key 存入 Windows 凭据管理器（keyring），不落盘明文
 - 🕐 **状态栏日期时间**：右下角实时显示当前日期和时间
@@ -38,11 +39,12 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🤖 **Full-document summary**: summarizes the entire paper via LLM (background, methods, data, findings, pros/cons, future work) with streaming output, shown in a resizable standalone window with Markdown rendering and formula display
 - 🔍 **Full-text search**: keyword search across the whole document, results highlighted in yellow and auto-centered vertically, with prev/next cyclic navigation
 - 📂 **Drag & drop**: drag a PDF file onto the window to open it
-- 🪟 **Window state memory**: remembers window size, position, and maximized state from the last session
+- 🖥️ **Window state memory**: remembers window size, position, and maximized state from the last session
 - ⚙️ **LLM settings**: supports any OpenAI-compatible provider (OpenAI, DeepSeek, Zhipu, SiliconFlow, local Ollama, etc.); model names can be fetched from the provider
 - 📌 **Reading position memory**: automatically remembers the position of each PDF and resumes there next time
 - 🕘 **Recent files**: remembers the last 10 opened files, with one-click clear
-- 🔗 **Clickable PDF links**: shows a hand cursor on hover, opens in the system browser on click
+- 🔗 **Clickable PDF links**: shows a hand cursor on hover, opens in the system browser on click; in-text reference citations (internal links) jump directly to the corresponding entry at the end of the document
+- 🌙 **Light/Dark theme**: switch between light and dark modes in the Settings menu; in dark mode the PDF pages are automatically inverted (white background becomes black) for comfortable night reading
 - ⌨️ **Shortcuts**: `Ctrl + / Ctrl -` to zoom, `Ctrl + L` to toggle fullscreen, `Ctrl + T` to translate
 - 🔐 **Secure API key storage**: LLM key is stored in the Windows Credential Manager (keyring), never in plaintext
 - 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner
@@ -87,7 +89,9 @@ python main.py
 7. 点击工具栏「全文总结」对整篇论文生成总结，结果在独立窗口中流式显示
 8. 在工具栏搜索框输入关键词回车，即可全文搜索并高亮定位，支持「上一个 / 下一个」跳转
 9. 首次使用大模型翻译或总结前，请到「设置 → 大模型设置」填写接口地址、API Key 和模型名
-10. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置，并恢复窗口状态
+10. 夜间阅读可到「设置 → 主题」切换夜间模式，PDF 页面会自动反色
+11. 若 PDF 自带内部链接，点击正文中的参考文献引用（如 [1]）可直接跳转到文末对应条目
+12. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置，并恢复窗口状态
 
 ---
 
@@ -100,7 +104,9 @@ python main.py
 7. Click "Full-document Summary" in the toolbar to summarize the entire paper; the result streams into a standalone window
 8. Type a keyword in the toolbar search box and press Enter to search the whole document with highlighted, centered results; use "Prev / Next" to navigate
 9. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
-10. After closing, reopening the same PDF resumes at your last reading position and restores the window state
+10. For night reading, switch to dark mode under "Settings → Theme"; PDF pages are automatically inverted
+11. If the PDF has internal links, click an in-text reference citation (e.g. [1]) to jump directly to the corresponding entry at the end of the document
+12. After closing, reopening the same PDF resumes at your last reading position and restores the window state
 
 ---
 

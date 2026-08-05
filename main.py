@@ -239,6 +239,7 @@ class MainWindow(QMainWindow):
         self.current_pdf = None
         self.worker = None
         self.font_size = 14
+        self.theme = "light"  # 主题：light / dark
         # 搜索状态
         self._search_results = []
         self._search_index = -1
@@ -291,6 +292,7 @@ class MainWindow(QMainWindow):
         self.viewer.textSelected.connect(self._on_text_selected)
         self.viewer.textSelectedAt.connect(self._on_text_selected_at)
         self.viewer.linkClicked.connect(self._on_link_clicked)
+        self.viewer.internalLinkClicked.connect(self._on_internal_link_clicked)
         self.viewer.zoomChanged.connect(self._on_viewer_zoom_changed)
 
         # 浮动翻译按钮（刷选文本后出现在鼠标附近）
@@ -414,6 +416,17 @@ class MainWindow(QMainWindow):
         llm_action = QAction("大模型设置...", self)
         llm_action.triggered.connect(self._configure_llm)
         settings_menu.addAction(llm_action)
+        settings_menu.addSeparator()
+        # 主题子菜单（日间 / 夜间）
+        theme_menu = settings_menu.addMenu("主题")
+        self.theme_actions = {}
+        for key, label in (("light", "日间"), ("dark", "夜间")):
+            act = QAction(label, self)
+            act.setCheckable(True)
+            act.triggered.connect(lambda checked=False, k=key: self._set_theme(k))
+            theme_menu.addAction(act)
+            self.theme_actions[key] = act
+        self.theme_actions["light"].setChecked(True)
 
         # 帮助菜单
         help_menu = menubar.addMenu("帮助")
@@ -640,28 +653,40 @@ class MainWindow(QMainWindow):
 
         close_action = QAction("关闭 PDF", self)
         close_action.triggered.connect(self.close_pdf)
+        close_action.setEnabled(False)
         toolbar.addAction(close_action)
+        self.close_action = close_action
 
         toolbar.addSeparator()
 
         # AI 总结（整篇文档）
         summary_action = QAction("全文总结", self)
         summary_action.triggered.connect(self._summarize_current)
+        summary_action.setEnabled(False)
         toolbar.addAction(summary_action)
+        self.summary_action = summary_action
 
         toolbar.addSeparator()
 
         # 页码导航
-        self.page_label = QLabel("第 1 / 1 页")
+        self.page_label = QLabel("")
+        self.page_label.setEnabled(False)
         toolbar.addWidget(self.page_label)
 
+        self.page_prefix_label = QLabel("跳转到第")
+        self.page_prefix_label.setEnabled(False)
+        toolbar.addWidget(self.page_prefix_label)
         self.page_spin = QSpinBox()
-        self.page_spin.setMinimum(1)
+        self.page_spin.setMinimum(0)
         self.page_spin.setMaximum(1)
-        self.page_spin.setPrefix("跳转到第 ")
-        self.page_spin.setSuffix(" 页")
+        self.page_spin.setValue(0)
+        self.page_spin.setFixedWidth(60)
+        self.page_spin.setEnabled(False)
         self.page_spin.valueChanged.connect(self._on_spin_changed)
         toolbar.addWidget(self.page_spin)
+        self.page_suffix_label = QLabel("页")
+        self.page_suffix_label.setEnabled(False)
+        toolbar.addWidget(self.page_suffix_label)
 
         toolbar.addSeparator()
 
@@ -734,6 +759,7 @@ class MainWindow(QMainWindow):
         self.page_label.setText(f"第 {page} / {total} 页")
         # 避免触发 valueChanged 循环
         self.page_spin.blockSignals(True)
+        self.page_spin.setMinimum(1)
         self.page_spin.setMaximum(total)
         self.page_spin.setValue(page)
         self.page_spin.blockSignals(False)
@@ -850,6 +876,11 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001
             self.status.showMessage(f"无法打开链接：{exc}")
 
+    def _on_internal_link_clicked(self, page_index: int, rect):
+        """点击 PDF 内部链接（如参考文献引用）时跳转到对应位置。"""
+        self.viewer.go_to_internal_link(page_index, rect)
+        self.status.showMessage(f"已跳转到第 {page_index + 1} 页")
+
     def _translate_current(self):
         text = getattr(self, "_selected_text", "")
         if not text:
@@ -875,8 +906,9 @@ class MainWindow(QMainWindow):
 
     def _set_result_hint(self):
         """在翻译结果区显示灰色提示文字（未打开/未翻译时）。"""
+        color = "#666666" if self.theme == "dark" else "#999999"
         self.result_view.setHtml(
-            f'<div style="color:#999999; font-size:{self.font_size}px; line-height:1.8;">'
+            f'<div style="color:{color}; font-size:{self.font_size}px; line-height:1.8;">'
             "在左侧 PDF 中刷选文本，<br>"
             "点击「翻译选中内容」或按 Ctrl+T 翻译。"
             "</div>"
@@ -954,6 +986,14 @@ class MainWindow(QMainWindow):
         self.current_pdf = os.path.abspath(path)
         self.setWindowTitle(f"PDF 阅读翻译器 - {os.path.basename(path)}")
         self.status.showMessage(f"已打开：{path}")
+        # 启用关闭/总结按钮
+        self.close_action.setEnabled(True)
+        self.summary_action.setEnabled(True)
+        # 启用页码导航
+        self.page_label.setEnabled(True)
+        self.page_prefix_label.setEnabled(True)
+        self.page_spin.setEnabled(True)
+        self.page_suffix_label.setEnabled(True)
 
         # 记录到最近打开列表
         settings.add_recent(self.current_pdf)
@@ -982,6 +1022,21 @@ class MainWindow(QMainWindow):
         self.viewer.clear_document()
         self.current_pdf = None
         self.setWindowTitle("PDF 阅读翻译器")
+        # 禁用关闭/总结按钮
+        self.close_action.setEnabled(False)
+        self.summary_action.setEnabled(False)
+        # 禁用页码导航
+        self.page_label.setEnabled(False)
+        self.page_prefix_label.setEnabled(False)
+        self.page_spin.setEnabled(False)
+        self.page_suffix_label.setEnabled(False)
+        # 重置页码显示（避免残留"1"）
+        self.page_label.setText("")
+        self.page_spin.blockSignals(True)
+        self.page_spin.setMinimum(0)
+        self.page_spin.setMaximum(1)
+        self.page_spin.setValue(0)
+        self.page_spin.blockSignals(False)
         # 重置翻译相关状态
         self._selected_text = ""
         self.translate_btn.setEnabled(False)
@@ -990,8 +1045,73 @@ class MainWindow(QMainWindow):
         self.status.showMessage("已关闭 PDF")
 
     # ---------- 设置 ----------
+    def _set_theme(self, theme: str):
+        """切换主题（light/dark）。"""
+        self.theme = theme
+        # 更新菜单勾选状态
+        for key, act in self.theme_actions.items():
+            act.setChecked(key == theme)
+        # 应用对应全局样式表
+        style = {
+            "light": _APP_STYLE,
+            "dark": _APP_STYLE_DARK,
+        }[theme]
+        QApplication.instance().setStyleSheet(style)
+        # 更新硬编码颜色的控件
+        self._apply_theme_to_widgets()
+        # 保存设置
+        s = settings.load_settings()
+        s["theme"] = theme
+        settings.save_settings(s)
+
+    def _apply_theme_to_widgets(self):
+        """更新带硬编码颜色的控件，使其适配当前主题。"""
+        theme = self.theme
+        # 浮动翻译按钮（各主题下保持蓝色，便于识别）
+        self.float_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #2d7ff9; color: white; border: none;"
+            "  border-radius: 4px; padding: 6px 14px; font-size: 13px;"
+            "}"
+            "QPushButton:hover { background-color: #1f6fe0; }"
+        )
+        # 字体调节按钮（A- / A+）两态样式
+        if theme == "dark":
+            btn_style = (
+                "QPushButton {"
+                "  background-color: #3a3a3a; color: #cccccc;"
+                "  border: 1px solid #4a4a4a; border-radius: 4px;"
+                "  padding: 2px 0; font-size: 14px; font-weight: bold;"
+                "}"
+                "QPushButton:hover { background-color: #4a4a4a; border-color: #4a90d9; }"
+                "QPushButton:pressed { background-color: #555555; }"
+            )
+        else:
+            btn_style = (
+                "QPushButton {"
+                "  background-color: #ffffff; color: #333333;"
+                "  border: 1px solid #c0c0c0; border-radius: 4px;"
+                "  padding: 2px 0; font-size: 14px; font-weight: bold;"
+                "}"
+                "QPushButton:hover { background-color: #e8f0fe; border-color: #4a90d9; }"
+                "QPushButton:pressed { background-color: #d0e0f5; }"
+            )
+        self.font_small_btn.setStyleSheet(btn_style)
+        self.font_big_btn.setStyleSheet(btn_style)
+        # 翻译结果提示文字颜色
+        self._set_result_hint()
+        # PDF 阅读区空状态提示 + 页面主题
+        self.viewer.set_empty_style(theme)
+        self.viewer.set_theme(theme)
+
     def _restore_settings(self):
         s = settings.load_settings()
+        # 恢复主题（兼容旧的 dark_mode 配置）
+        theme = s.get("theme")
+        if not theme and s.get("dark_mode"):
+            theme = "dark"
+        if theme in ("light", "dark"):
+            self._set_theme(theme)
         sizes = s.get("splitter_sizes")
         if sizes and len(sizes) == 2:
             self.splitter.setSizes(sizes)
@@ -1118,6 +1238,29 @@ QToolButton:hover {
     background-color: #e8f0fe;
     border-color: #4a90d9;
 }
+QToolButton:disabled {
+    background-color: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #b0b0b0;
+}
+/* 工具栏内的按钮（搜索/上一个/下一个）与 QToolButton 风格统一 */
+QToolBar QPushButton {
+    background-color: #ffffff;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #333333;
+    font-size: 13px;
+}
+QToolBar QPushButton:hover {
+    background-color: #e8f0fe;
+    border-color: #4a90d9;
+}
+QToolBar QPushButton:disabled {
+    background-color: #f0f0f0;
+    border-color: #e0e0e0;
+    color: #b0b0b0;
+}
 QMenuBar {
     background-color: #ffffff;
     border-bottom: 1px solid #e0e0e0;
@@ -1211,6 +1354,166 @@ QStatusBar {
 }
 QSplitter::handle {
     background-color: #d0d0d0;
+    width: 3px;
+}
+QSplitter::handle:hover {
+    background-color: #4a90d9;
+}
+"""
+
+
+# 夜间模式样式表
+_APP_STYLE_DARK = """
+QMainWindow {
+    background-color: #1e1e1e;
+}
+QToolBar {
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #3a3a3a;
+    padding: 4px;
+    spacing: 6px;
+}
+QToolBar QLabel {
+    color: #cccccc;
+    font-size: 13px;
+    font-weight: 500;
+}
+QToolButton {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #cccccc;
+    font-size: 13px;
+}
+QToolButton:hover {
+    background-color: #4a4a4a;
+    border-color: #4a90d9;
+}
+QToolButton:disabled {
+    background-color: #2d2d2d;
+    border-color: #3a3a3a;
+    color: #666666;
+}
+/* 工具栏内的按钮（搜索/上一个/下一个）与 QToolButton 风格统一 */
+QToolBar QPushButton {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #cccccc;
+    font-size: 13px;
+}
+QToolBar QPushButton:hover {
+    background-color: #4a4a4a;
+    border-color: #4a90d9;
+}
+QToolBar QPushButton:disabled {
+    background-color: #2d2d2d;
+    border-color: #3a3a3a;
+    color: #666666;
+}
+QMenuBar {
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #3a3a3a;
+    font-size: 13px;
+}
+QMenuBar::item {
+    padding: 5px 10px;
+    background: transparent;
+    color: #cccccc;
+}
+QMenuBar::item:selected {
+    background-color: #4a4a4a;
+    border-radius: 4px;
+}
+QMenu {
+    background-color: #2d2d2d;
+    border: 1px solid #4a4a4a;
+    padding: 4px;
+    font-size: 13px;
+    color: #cccccc;
+}
+QMenu::item {
+    padding: 6px 24px;
+    border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #4a4a4a;
+}
+QPushButton {
+    background-color: #4a90d9;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+QPushButton:hover {
+    background-color: #3a80c9;
+}
+QPushButton:disabled {
+    background-color: #555555;
+}
+QTextEdit {
+    background-color: #252526;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+    color: #dddddd;
+}
+QScrollArea {
+    background-color: #2b2b2b;
+    border: none;
+}
+QScrollBar:vertical {
+    background: #2d2d2d;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #555555;
+    border-radius: 5px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #666666;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QSpinBox, QComboBox {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    padding: 3px 6px;
+    min-height: 22px;
+    color: #cccccc;
+}
+QComboBox QAbstractItemView {
+    background-color: #2d2d2d;
+    color: #cccccc;
+    selection-background-color: #4a4a4a;
+}
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #4a4a4a;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    background: #4a90d9;
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+QStatusBar {
+    background-color: #2d2d2d;
+    border-top: 1px solid #3a3a3a;
+    color: #999999;
+}
+QSplitter::handle {
+    background-color: #3a3a3a;
     width: 3px;
 }
 QSplitter::handle:hover {

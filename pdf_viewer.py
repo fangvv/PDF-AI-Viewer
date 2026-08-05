@@ -41,6 +41,7 @@ class PdfPageWidget(QWidget):
     textSelected = pyqtSignal(str)
     textSelectedAt = pyqtSignal(str, object)  # 文本, 全局坐标 QPoint
     linkClicked = pyqtSignal(str)
+    internalLinkClicked = pyqtSignal(int, object)  # 目标页索引(0-based), 目标矩形
 
     def __init__(self, page: fitz.Page, zoom: float, parent=None):
         super().__init__(parent)
@@ -48,6 +49,7 @@ class PdfPageWidget(QWidget):
         self.zoom = zoom
         self.pixmap = None
         self._rendered = False
+        self.theme = "light"  # 主题：light / dark
         # 先按缩放后的尺寸占位，保证布局正确
         rect = page.rect
         self.setFixedSize(int(rect.width * zoom), int(rect.height * zoom))
@@ -59,11 +61,19 @@ class PdfPageWidget(QWidget):
         self._sel_rects = []
         # 搜索高亮矩形（PDF 坐标，绘制时乘 zoom）
         self._search_rects = []
-        # 页面链接（uri 链接）
-        self._links = []
+        # 页面链接：uri 链接（外部）与内部链接（跳转到文档内其他位置）
+        self._links = []          # (rect, uri) 外部链接
+        self._internal_links = []  # (rect, target_page, target_rect) 内部链接
         for link in page.get_links():
             if link.get("uri"):
                 self._links.append((fitz.Rect(link["from"]), link["uri"]))
+            elif link.get("kind") == 1:  # 内部链接（跳转到文档内某页某位置）
+                target_page = link.get("page", 0)
+                target_rect = link.get("to")
+                if target_rect is not None:
+                    self._internal_links.append(
+                        (fitz.Rect(link["from"]), target_page, fitz.Rect(target_rect))
+                    )
         self._hover_link = None
 
     def _link_at(self, pos) -> str | None:
@@ -74,6 +84,16 @@ class PdfPageWidget(QWidget):
         for rect, uri in self._links:
             if rect.contains(point):
                 return uri
+        return None
+
+    def _internal_link_at(self, pos):
+        """返回位置 pos 处的内部链接 (target_page, target_rect)，无则返回 None。"""
+        pdf_x = pos.x() / self.zoom
+        pdf_y = pos.y() / self.zoom
+        point = fitz.Point(pdf_x, pdf_y)
+        for rect, target_page, target_rect in self._internal_links:
+            if rect.contains(point):
+                return target_page, target_rect
         return None
 
     def ensure_rendered(self):
@@ -93,9 +113,22 @@ class PdfPageWidget(QWidget):
             pix.stride,
             QImage.Format.Format_RGB888,
         )
-        self.pixmap = QPixmap.fromImage(img.copy())
+        img = img.copy()
+        if self.theme == "dark":
+            # 夜间模式：对页面像素做颜色反转（白底→黑底，黑字→白字）
+            img.invertPixels()
+        self.pixmap = QPixmap.fromImage(img)
         self._rendered = True
         self.setFixedSize(self.pixmap.size())
+
+    def set_theme(self, theme: str):
+        """设置主题（light/dark），切换后重新渲染页面。"""
+        if self.theme == theme:
+            return
+        self.theme = theme
+        self._rendered = False
+        self.pixmap = None
+        self.update()
 
     def set_zoom(self, zoom: float):
         self.zoom = zoom
@@ -147,10 +180,11 @@ class PdfPageWidget(QWidget):
         # 悬停检测：在链接上显示手型光标
         if self._sel_start is None:
             uri = self._link_at(event.position())
-            if uri and not self._hover_link:
-                self._hover_link = uri
+            internal = self._internal_link_at(event.position())
+            if (uri or internal) and not self._hover_link:
+                self._hover_link = uri or internal
                 self.setCursor(Qt.CursorShape.PointingHandCursor)
-            elif not uri and self._hover_link:
+            elif not uri and not internal and self._hover_link:
                 self._hover_link = None
                 self.setCursor(Qt.CursorShape.IBeamCursor)
         if self._sel_start is not None and event.buttons() & Qt.MouseButton.LeftButton:
@@ -168,6 +202,16 @@ class PdfPageWidget(QWidget):
                 uri = self._link_at(event.position())
                 if uri:
                     self.linkClicked.emit(uri)
+                    self._sel_start = None
+                    self._sel_end = None
+                    return
+                internal = self._internal_link_at(event.position())
+                if internal:
+                    target_page, target_rect = internal
+                    self.internalLinkClicked.emit(target_page, target_rect)
+                    self._sel_start = None
+                    self._sel_end = None
+                    return
             elif text:
                 self.textSelected.emit(text)
                 # 同时发出全局坐标，用于显示浮动翻译按钮
@@ -254,6 +298,7 @@ class PdfViewer(QScrollArea):
     textSelected = pyqtSignal(str)
     textSelectedAt = pyqtSignal(str, object)  # 文本, 全局坐标 QPoint
     linkClicked = pyqtSignal(str)
+    internalLinkClicked = pyqtSignal(int, object)  # 目标页索引(0-based), 目标矩形
     zoomChanged = pyqtSignal(float)  # 缩放比例变化（Ctrl+滚轮）
 
     # 缩放模式
@@ -328,6 +373,7 @@ class PdfViewer(QScrollArea):
             w.textSelected.connect(self.textSelected)
             w.textSelectedAt.connect(self.textSelectedAt)
             w.linkClicked.connect(self.linkClicked)
+            w.internalLinkClicked.connect(self.internalLinkClicked)
             self._layout.addWidget(w)
             self.page_widgets.append(w)
         self.pageChanged.emit(1, len(self.page_widgets))
@@ -351,6 +397,7 @@ class PdfViewer(QScrollArea):
             w.textSelected.connect(self.textSelected)
             w.textSelectedAt.connect(self.textSelectedAt)
             w.linkClicked.connect(self.linkClicked)
+            w.internalLinkClicked.connect(self.internalLinkClicked)
             self._layout.addWidget(w)
             self.page_widgets.append(w)
             if progress_callback:
@@ -361,7 +408,10 @@ class PdfViewer(QScrollArea):
         return total
 
     def _clear_pages(self):
+        # 立即从布局中移除旧页面，避免 deleteLater 延迟删除期间
+        # 新旧页面混在一起（连续快速打开多个 PDF 时会出现混乱）
         for w in self.page_widgets:
+            self._layout.removeWidget(w)
             w.deleteLater()
         self.page_widgets = []
 
@@ -379,6 +429,20 @@ class PdfViewer(QScrollArea):
         # 显示空状态提示
         self._empty_label.show()
         self.pageChanged.emit(1, 1)
+
+    def set_empty_style(self, theme: str):
+        """设置空状态提示文字颜色（适配日间/夜间主题）。"""
+        color = "#666666" if theme == "dark" else "#999999"
+        self._empty_label.setStyleSheet(
+            f"color: {color}; font-size: 16px; background: transparent;"
+        )
+
+    def set_theme(self, theme: str):
+        """设置主题（light/dark）：对已加载的 PDF 页面重新渲染。"""
+        for w in self.page_widgets:
+            w.set_theme(theme)
+        # 重新渲染当前可见页
+        QTimer.singleShot(0, self._render_visible)
 
     def _capture_position(self):
         """记录当前页及其在页内的相对位置（0~1），用于缩放后恢复。"""
@@ -520,6 +584,19 @@ class PdfViewer(QScrollArea):
         sb.setValue(scroll)
         self.pageChanged.emit(page_index + 1, len(self.page_widgets))
         self._render_visible()
+
+    def go_to_internal_link(self, page_index: int, rect):
+        """跳转到内部链接指向的文档位置（参考文献跳转）。
+
+        page_index 为目标页索引（0-based），rect 为目标矩形（PDF 坐标）。
+        """
+        if not self.page_widgets or page_index < 0 or page_index >= len(self.page_widgets):
+            return
+        # 目标矩形可能为空（仅指定页），此时跳到页面顶部
+        if rect is None or rect.is_empty:
+            self.go_to_page(page_index + 1)
+            return
+        self.scroll_to_rect(page_index, rect)
 
     def current_page(self) -> int:
         if not self.page_widgets:

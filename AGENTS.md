@@ -55,12 +55,16 @@ pyinstaller --noconfirm "PDF阅读翻译器.spec"
 
 ### 标准工作流（每次改代码后都要做）
 
-每次修改代码后，**必须重新打包并上传到 GitHub**，否则仓库里的 exe 与源码不一致：
+每次修改代码后，**必须重新打包并上传到 GitHub**，否则仓库里的 exe 与源码不一致。
+完整发布流程如下（按顺序执行）：
 
-1. 修改代码
-2. 重新打包：`pyinstaller --noconfirm "PDF阅读翻译器.spec"`
-3. 确认 `dist/PDF阅读翻译器.exe` **小于 100MB**（GitHub 硬限制，超过会拒绝推送）
-4. 提交并推送：`git add` 源码 + spec + exe，然后 `git commit` + `git push`
+1. **清理不需要的文件**：删除本次改动产生的临时/无用文件（如调试脚本、临时图片、备份文件等），
+   保持仓库整洁。注意 `dist/PDF阅读翻译器.exe` 和 `*.spec` 是**被 git 跟踪**的，不要误删。
+2. **更新文档**：若功能有增删改，同步更新 `README.md`（面向用户的功能/使用说明）和
+   `AGENTS.md`（面向 AI 助手/开发者的工程约定与坑）。README 保持中英双语。
+3. **重新打包**：`pyinstaller --noconfirm "PDF阅读翻译器.spec"`
+4. **确认体积**：检查 `dist/PDF阅读翻译器.exe` **小于 100MB**（GitHub 硬限制，超过会拒绝推送）
+5. **提交并推送**：`git add` 源码 + spec + exe + 两个 md，然后 `git commit` + `git push`
 
 > 若打包后 exe 超过 100MB，说明又引入了被排除的依赖，先排查再推送。
 
@@ -86,6 +90,22 @@ pyinstaller --noconfirm "PDF阅读翻译器.spec"
 - **全文搜索**：`PdfViewer.search()` 用 `page.search_for()` 返回 `(page_index, rect)` 列表；
   `scroll_to_rect()` 按 `w.y() + rect.y0*zoom - viewport_height/2` 让高亮垂直居中。
   搜索词未变时再点「搜索」跳到下一个结果（见 `_do_search` 的 `_last_search_text` 逻辑）。
+- **主题（日间/夜间）**：`main.py` 底部定义 `_APP_STYLE`（日间）和 `_APP_STYLE_DARK`（夜间）
+  两套全局样式表，`_set_theme()` 切换并保存到 settings.json 的 `theme` 字段（兼容旧 `dark_mode`）。
+  切换时 `_apply_theme_to_widgets()` 同步更新硬编码颜色的控件（浮动按钮、A-/A+ 字体按钮、
+  翻译提示文字、PDF 空状态提示）。**PDF 页面反色**：夜间模式下 `PdfPageWidget._render()` 对
+  QImage 调 `img.invertPixels()`（白底→黑底）。注意：护眼模式（豆沙绿）已移除，不要重新引入。
+- **内部链接跳转（参考文献）**：`PdfPageWidget` 解析 `page.get_links()` 中 `kind == 1` 的
+  内部链接（目标页 + 目标矩形），点击时发 `internalLinkClicked` 信号；`PdfViewer.go_to_internal_link()`
+  复用 `scroll_to_rect()` 跳转。外部 `uri` 链接仍走 `linkClicked` 用系统浏览器打开。
+- **连续打开多个 PDF**：`PdfViewer._clear_pages()` 删除旧页面时，必须先 `layout.removeWidget(w)`
+  再 `deleteLater()`。因为 `deleteLater()` 是延迟删除，若只 deleteLater 不 removeWidget，
+  连续快速打开多个 PDF 时新旧页面会混在一起。
+- **工具栏按钮状态**：未打开 PDF 时，"关闭 PDF"、"全文总结"、页码导航控件应禁用（灰色）。
+  通过 `self.close_action` / `self.summary_action` / `self.page_label` 等实例属性控制，
+  在 `load_pdf` 启用、`close_pdf` 禁用。页码跳转框 `page_spin` 未打开时值应为 0（不是 1），
+  避免显示误导性的"第 1 页"。工具栏内 QPushButton（搜索/上一个/下一个）用 `QToolBar QPushButton`
+  选择器统一成与 QToolButton 一致的浅色描边风格，并定义 `:disabled` 状态让禁用可见。
 
 ## 提交约定
 
