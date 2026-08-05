@@ -204,11 +204,27 @@ class PdfPageWidget(QWidget):
         spans = self._get_selected_spans()
         if not spans:
             return ""
-        # 按 span 顺序拼接文本
+        # 按 span 顺序拼接文本，并根据几何位置判断分隔符：
+        # - 相邻 span 换行（y 坐标不同）→ 插入换行，交给 clean_text 转成空格
+        # - 同一行但 x 方向有间隙 → 插入空格，避免 "for"+"edge" 粘连成 "foredge"
+        # - 否则直接拼接（同一单词被拆成多个 span 的情况）
         parts = []
-        for text, *_ in spans:
-            if text:
-                parts.append(text)
+        prev = None
+        for text, x0, y0, x1, y1 in spans:
+            if not text:
+                continue
+            if prev is not None:
+                _, px0, py0, px1, py1 = prev
+                # 换行判断：y 中心相差超过半行高
+                cur_cy = (y0 + y1) / 2
+                prev_cy = (py0 + py1) / 2
+                line_h = max(y1 - y0, py1 - py0, 1e-6)
+                if abs(cur_cy - prev_cy) > line_h * 0.5:
+                    parts.append("\n")
+                elif x0 > px1 + 1e-6:  # 同一行但 x 有间隙
+                    parts.append(" ")
+            parts.append(text)
+            prev = (text, x0, y0, x1, y1)
         raw = "".join(parts)
         return clean_text(raw)
 
