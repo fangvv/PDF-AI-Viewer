@@ -5,7 +5,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    # 打包 logo 图标/图片，供运行时设置窗口/任务栏图标（sys._MEIPASS 解压）
+    datas=[('logo.ico', '.'), ('logo.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -39,6 +39,16 @@ from translator import Translator, TranslationError
 import settings
 
 
+def resource_path(name: str) -> str:
+    """返回资源文件绝对路径，兼容源码运行与 PyInstaller 打包（frozen）环境。
+
+    PyInstaller 打包后会把 datas 里的文件解压到 sys._MEIPASS 临时目录，
+    此时 __file__ 指向该临时目录，直接用源码目录去拼路径会找不到资源。
+    """
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, name)
+
+
 class TranslateWorker(QThread):
     """后台翻译线程，避免阻塞界面。"""
 
@@ -101,7 +111,7 @@ class SummaryWindow(QWidget):
             | Qt.WindowType.WindowMaximizeButtonHint
         )
         # 窗口图标
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.ico")
+        icon_path = resource_path("logo.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -228,7 +238,7 @@ class MainWindow(QMainWindow):
         # 支持拖拽 PDF 文件到窗口打开
         self.setAcceptDrops(True)
         # 设置窗口图标
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.ico")
+        icon_path = resource_path("logo.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -482,7 +492,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
 
         # Logo
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.png")
+        logo_path = resource_path("logo.png")
         logo_label = QLabel()
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path).scaled(
@@ -1243,8 +1253,15 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("PDFTranslator")
-    # 设置应用图标（任务栏）
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.ico")
+    # Windows 任务栏图标需要 AppUserModelID，否则可能只显示默认空白图标
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PDFTranslator")
+        except Exception:
+            pass  # 非 Windows 或调用失败时忽略
+    # 设置应用图标（任务栏/标题栏）
+    icon_path = resource_path("logo.ico")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     # 设置全局字体（微软雅黑，中文显示更美观）

@@ -52,6 +52,12 @@ pyinstaller --noconfirm "PDF阅读翻译器.spec"
    本项目只用 `fitz` 渲染 PDF，不需要这些库，已在 spec 中排除。
 2. exe 约 65MB，超过 GitHub 50MB 推荐上限但低于 100MB 硬限制，可正常推送（会有警告）。
 3. 若改动后 exe 体积异常增大，先检查是否又引入了被排除的依赖。
+4. **打包后窗口/任务栏图标**：窗口/任务栏图标由 exe 运行时加载 `logo.ico`，必须在 spec 的
+   `Analysis.datas` 里把 `logo.ico`/`logo.png` 打包进去（`datas=[('logo.ico', '.'), ('logo.png', '.')]`），
+   并且代码里用 `resource_path()`（基于 `sys._MEIPASS`）解析，直接拼 `__file__` 目录在冻结环境找不到。
+   spec 里 EXE 的 `icon=['logo.ico']` 只影响 exe 文件本身的图标，不影响运行时任务栏图标。
+   另外 **PyQt6 没有 `QApplication.setAppUserModelID`**（会 AttributeError），设置 Windows 任务栏
+   AppUserModelID 需用 `ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID`（见 `main()`）。
 
 ### 标准工作流（每次改代码后都要做）
 
