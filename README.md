@@ -17,6 +17,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🎯 **浮动翻译按钮**：刷选文本后，翻译按钮自动出现在鼠标附近，点击即可翻译，无需移动鼠标
 - 🌐 **多翻译引擎**：内置微软 Edge、通用 OpenAI 兼容大模型、MyMemory 三个接口，可自动回退或手动选择
 - 🤖 **全文总结**：对整篇论文调用大模型生成结构化总结（背景、方法、数据、结论、优缺点、后续方向），流式输出实时显示，独立可缩放窗口，支持 Markdown 渲染与公式显示
+- 💬 **边读边问（AI 问答）**：阅读时随时呼出独立对话窗口，用同一套大模型配置多轮提问，每次提问自动附带整篇文献作上下文（同 Chatbox 附加文件）；问答自动追加到与 PDF 同目录同名的 `.md` 笔记（`A.pdf` → `A.md`），重开文献即恢复历史；支持流式输出、随时中断、字号调节、夜间主题，可一键用系统默认程序打开笔记
 - 🔍 **全文搜索**：关键词全文搜索，结果黄色高亮并自动垂直居中定位，支持上一个/下一个循环跳转
 - 📂 **拖拽打开**：直接把 PDF 文件拖到窗口即可打开
 - 🖥️ **窗口状态记忆**：记住上次关闭时的窗口大小、位置与最大化状态
@@ -25,7 +26,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🕘 **最近打开历史**：记录最近打开的 10 个文件，支持一键清空
 - 🔗 **PDF 链接可点击**：悬停显示手型光标，点击用系统浏览器打开；正文中的参考文献引用（内部链接）点击可直接跳转到文末对应条目
 - 🌙 **日间/夜间主题**：设置菜单可切换日间与夜间模式，夜间模式下 PDF 页面自动反色（白底变黑底），晚上读论文不刺眼
-- ⌨️ **快捷键**：`Ctrl + / Ctrl -` 调节缩放，`Ctrl + L` 切换全屏，`Ctrl + T` 翻译
+- ⌨️ **快捷键**：`Ctrl + / Ctrl -` 调节缩放，`Ctrl + L` 切换全屏，`Ctrl + T` 翻译，`Ctrl + Shift + Q` 呼出 AI 问答
 - 🔐 **API Key 安全存储**：大模型 Key 存入 Windows 凭据管理器（keyring），不落盘明文
 - 🕐 **状态栏日期时间**：右下角实时显示当前日期和时间，左侧显示当前翻译引擎状态
 - 🎨 **界面美化**：右侧面板卡片化（圆角 + 阴影）、翻译结果 Markdown 渲染、浮动按钮淡入动画、可调翻译字体、内置 Logo、关于对话框（含官网链接）
@@ -37,6 +38,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🎯 **Floating translate button**: appears near the mouse after selecting text; click to translate without moving the mouse
 - 🌐 **Multiple translation engines**: built-in Microsoft Edge, generic OpenAI-compatible LLM, and MyMemory, with auto-fallback or manual selection
 - 🤖 **Full-document summary**: summarizes the entire paper via LLM (background, methods, data, findings, pros/cons, future work) with streaming output, shown in a resizable standalone window with Markdown rendering and formula display
+- 💬 **Ask while reading (AI chat)**: summon a standalone chat window anytime and ask multi-turn questions using the same LLM configuration, with the whole document automatically attached as context (like attaching a file in Chatbox); every Q&A is appended to a Markdown note next to the PDF (`A.pdf` → `A.md`), history is restored when you reopen the file; answers stream in, can be interrupted, with adjustable font size, dark theme and one-click "open note" in your system editor
 - 🔍 **Full-text search**: keyword search across the whole document, results highlighted in yellow and auto-centered vertically, with prev/next cyclic navigation
 - 📂 **Drag & drop**: drag a PDF file onto the window to open it
 - 🖥️ **Window state memory**: remembers window size, position, and maximized state from the last session
@@ -45,7 +47,7 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🕘 **Recent files**: remembers the last 10 opened files, with one-click clear
 - 🔗 **Clickable PDF links**: shows a hand cursor on hover, opens in the system browser on click; in-text reference citations (internal links) jump directly to the corresponding entry at the end of the document
 - 🌙 **Light/Dark theme**: switch between light and dark modes in the Settings menu; in dark mode the PDF pages are automatically inverted (white background becomes black) for comfortable night reading
-- ⌨️ **Shortcuts**: `Ctrl + / Ctrl -` to zoom, `Ctrl + L` to toggle fullscreen, `Ctrl + T` to translate
+- ⌨️ **Shortcuts**: `Ctrl + / Ctrl -` to zoom, `Ctrl + L` to toggle fullscreen, `Ctrl + T` to translate, `Ctrl + Shift + Q` to open the AI chat
 - 🔐 **Secure API key storage**: LLM key is stored in the Windows Credential Manager (keyring), never in plaintext
 - 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner, plus the active translation engine on the left
 - 🎨 **Polished UI**: card-based right panel (rounded corners + shadow), Markdown rendering for translation results, fade-in animation for the floating button, adjustable translation font, built-in logo, About dialog (with website link)
@@ -87,11 +89,13 @@ python main.py
 5. 使用「A- / A+」按钮调节翻译字体大小
 6. 缩放：工具栏选择适合页面 / 适合宽度 / 百分比，或按住 `Ctrl` 滚动鼠标滚轮快速缩放
 7. 点击工具栏「全文总结」对整篇论文生成总结，结果在独立窗口中流式显示
-8. 在工具栏搜索框输入关键词回车，即可全文搜索并高亮定位，支持「上一个 / 下一个」跳转
-9. 首次使用大模型翻译或总结前，请到「设置 → 大模型设置」填写接口地址、API Key 和模型名
-10. 夜间阅读可到「设置 → 主题」切换夜间模式，PDF 页面会自动反色
-11. 若 PDF 自带内部链接，点击正文中的参考文献引用（如 [1]）可直接跳转到文末对应条目
-12. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置，并恢复窗口状态
+8. 点击工具栏「AI 问答」或按 `Ctrl + Shift + Q` 呼出问答窗口，边读边提问；`Enter` 发送，`Shift + Enter` 换行，回答期间按钮变「停止」可随时中断
+9. 问答会自动写入与 PDF 同目录同名的 `.md` 文件，可随时点「打开笔记」用系统默认程序查看/编辑
+10. 在工具栏搜索框输入关键词回车，即可全文搜索并高亮定位，支持「上一个 / 下一个」跳转
+11. 首次使用大模型翻译或总结前，请到「设置 → 大模型设置」填写接口地址、API Key 和模型名（AI 问答使用同一套配置）
+12. 夜间阅读可到「设置 → 主题」切换夜间模式，PDF 页面会自动反色，问答窗口同步切换
+13. 若 PDF 自带内部链接，点击正文中的参考文献引用（如 [1]）可直接跳转到文末对应条目
+14. 关闭程序后，下次打开同一 PDF 会自动跳转到上次阅读位置，并恢复窗口与问答窗口状态
 
 ---
 
@@ -102,11 +106,13 @@ python main.py
 5. Use the "A- / A+" buttons to adjust the translation font size
 6. Zoom: choose Fit Page / Fit Width / Percentage in the toolbar, or hold `Ctrl` and scroll the mouse wheel for quick zoom
 7. Click "Full-document Summary" in the toolbar to summarize the entire paper; the result streams into a standalone window
-8. Type a keyword in the toolbar search box and press Enter to search the whole document with highlighted, centered results; use "Prev / Next" to navigate
-9. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings"
-10. For night reading, switch to dark mode under "Settings → Theme"; PDF pages are automatically inverted
-11. If the PDF has internal links, click an in-text reference citation (e.g. [1]) to jump directly to the corresponding entry at the end of the document
-12. After closing, reopening the same PDF resumes at your last reading position and restores the window state
+8. Click "AI Chat" in the toolbar or press `Ctrl + Shift + Q` to open the chat window and ask questions while reading; `Enter` sends, `Shift + Enter` inserts a line break, and the button turns into "Stop" so you can interrupt an answer
+9. Each exchange is written automatically into a `.md` file in the same folder as the PDF; click "Open Note" to view/edit it with your default editor
+10. Type a keyword in the toolbar search box and press Enter to search the whole document with highlighted, centered results; use "Prev / Next" to navigate
+11. Before using LLM translation or summary for the first time, configure the base URL, API key, and model under "Settings → LLM Settings" (the AI chat reuses the same configuration)
+12. For night reading, switch to dark mode under "Settings → Theme"; PDF pages are inverted and the chat window follows the theme
+13. If the PDF has internal links, click an in-text reference citation (e.g. [1]) to jump directly to the corresponding entry at the end of the document
+14. After closing, reopening the same PDF resumes at your last reading position and restores both window states
 
 ---
 
@@ -126,13 +132,55 @@ This software supports any **OpenAI-compatible** LLM endpoint. You choose the pr
 
 ---
 
+## 边读边问 / Ask While Reading
+
+打开 PDF 后，点击工具栏「AI 问答」或按 `Ctrl + Shift + Q` 呼出对话窗口（非模态，不挡住阅读）。提问后：
+
+- 回答流式显示，右侧蓝色气泡是你的问题，左侧卡片是 AI 回答（支持 Markdown）
+- 每次提问会自动把**整篇文献的全文**（约 6 万字符内）随问题一起发给模型，相当于 Chatbox 里附加文件，所以可以直接问「这篇论文的创新点是什么」；扫描件等提取不出文本的 PDF 则不带文献，退回普通对话
+- 每一轮问答都会**自动追加**到与 PDF 同目录、同名的 `.md` 文件：`A.pdf` → `A.md`
+- 重新打开这份文献时，历史问答会自动读回，可以接着聊；问模型时只带最近的对话作为上下文
+- `.md` 就是你自己的学习笔记，可以用任意编辑器继续修改、补充
+
+After opening a PDF, click "AI Chat" in the toolbar or press `Ctrl + Shift + Q` to summon the chat window (non-modal, so it never blocks reading):
+
+- Answers stream in; your question is the blue bubble on the right, the AI answer is the card on the left (Markdown supported)
+- Every question automatically carries the **full text of the document** (up to ~60k characters) alongside it — the same as attaching a file in Chatbox — so you can directly ask "what are this paper's contributions"; scanned PDFs with no extractable text fall back to plain conversation
+- Every exchange is **appended automatically** to a `.md` file in the same folder with the same base name: `A.pdf` → `A.md`
+- Reopening the document reloads your history so you can continue the conversation; only recent turns are sent as context
+- The `.md` file is your own study note — edit and annotate it in any editor
+
+笔记文件格式（可手工编辑）/ Note file format (hand-editable):
+
+```markdown
+# A.pdf 阅读问答记录
+
+## 1. 问：为什么要用 Transformer？
+> 第 3 页 · 2026-09-30 14:22
+
+**答：**
+
+因为……
+
+---
+```
+
+若 PDF 所在目录不可写（只读光盘、被其他程序占用等），本次问答会改存到 `~/.pdftranslator/chatnotes/` 并在窗口内提示，内容不会丢。
+
+If the PDF's folder is not writable (read-only media, file locked by another program, etc.), that exchange is saved to `~/.pdftranslator/chatnotes/` instead and the window tells you — nothing gets lost.
+
+---
+
 ## 项目结构 / Project Structure
 
 ```
 pdf_translator/
-├── main.py          # 主窗口：分栏布局、工具栏、菜单栏、翻译/总结线程、浮动按钮
+├── main.py          # 主窗口：分栏布局、工具栏、菜单栏、翻译/总结/问答线程、浮动按钮
 ├── pdf_viewer.py    # PDF 阅读器：按需渲染、刷选、缩放、链接点击
-├── translator.py    # 翻译引擎：Edge / OpenAI 兼容大模型 / MyMemory，流式总结
+├── translator.py    # 翻译引擎：Edge / OpenAI 兼容大模型 / MyMemory，流式总结与多轮对话
+├── chat_window.py   # AI 阅读问答：浮动对话窗口（气泡渲染、流式显示、字号与主题）
+├── chat_log.py      # 问答记录读写：与 PDF 同目录同名的 .md 笔记
+├── latex_fallback.py# LaTeX 公式 → Unicode 兜底转换（总结与问答共用）
 ├── settings.py      # 配置存储：阅读位置、最近历史、界面设置、大模型配置
 ├── make_logo.py     # Logo 生成脚本
 ├── requirements.txt # 依赖清单
@@ -147,7 +195,7 @@ pdf_translator/
 ## 技术栈 / Tech Stack
 
 - [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) — 桌面 GUI 框架
-- [PyMuPDF (fitz)](https://pymupdf.readthedocs.io/) — PDF 渲染与文本提取
+- [PyMuPDF](https://pymupdf.readthedocs.io/) — PDF 渲染与文本提取
 - [requests](https://requests.readthedocs.io/) — 调用翻译 / 大模型 API
 - [keyring](https://github.com/jaraco/keyring) — 系统凭据管理器（安全存储 API Key）
 

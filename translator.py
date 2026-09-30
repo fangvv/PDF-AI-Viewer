@@ -6,6 +6,8 @@
 失败时自动回退到下一个引擎。
 """
 
+import json
+
 import requests
 
 
@@ -83,14 +85,18 @@ class OpenAICompatTranslator(BaseTranslator):
         self.base_url = base_url.rstrip("/")
         self.model = model
 
+    def _validate(self):
+        """校验大模型配置，缺失时抛出可读的错误。"""
+        if not self.api_key:
+            raise TranslationError("未配置大模型 API Key，请在「设置 → 大模型设置」中填写")
+        if not self.base_url:
+            raise TranslationError("未配置大模型接口地址，请在「设置 → 大模型设置」中填写")
+        if not self.model:
+            raise TranslationError("未配置大模型名称，请在「设置 → 大模型设置」中填写")
+
     def _chat(self, prompt: str, timeout: int = 60) -> str:
         """调用大模型，返回文本结果。"""
-        if not self.api_key:
-            raise TranslationError("未配置大模型 API Key，请在「设置」中填写")
-        if not self.base_url:
-            raise TranslationError("未配置大模型接口地址，请在「设置」中填写")
-        if not self.model:
-            raise TranslationError("未配置大模型名称，请在「设置」中填写")
+        self._validate()
         url = f"{self.base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -114,14 +120,9 @@ class OpenAICompatTranslator(BaseTranslator):
             return content.strip()
         raise TranslationError("大模型返回空结果")
 
-    def _chat_stream(self, prompt: str, timeout: int = 120):
-        """流式调用大模型，逐块 yield 文本内容。"""
-        if not self.api_key:
-            raise TranslationError("未配置大模型 API Key，请在「设置」中填写")
-        if not self.base_url:
-            raise TranslationError("未配置大模型接口地址，请在「设置」中填写")
-        if not self.model:
-            raise TranslationError("未配置大模型名称，请在「设置」中填写")
+    def _stream_messages(self, messages: list, timeout: int = 120, temperature: float = 0.3):
+        """流式调用大模型（支持多轮 messages），逐块 yield 文本内容。"""
+        self._validate()
         url = f"{self.base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -129,8 +130,8 @@ class OpenAICompatTranslator(BaseTranslator):
         }
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.3,
+            "messages": messages,
+            "temperature": temperature,
             "stream": True,
         }
         with requests.post(url, json=payload, headers=headers, timeout=timeout,
@@ -149,7 +150,6 @@ class OpenAICompatTranslator(BaseTranslator):
                     continue
                 if data == "[DONE]":
                     break
-                import json
                 try:
                     chunk = json.loads(data)
                 except json.JSONDecodeError:
@@ -160,6 +160,34 @@ class OpenAICompatTranslator(BaseTranslator):
                     continue
                 if delta:
                     yield delta
+
+    def _chat_stream(self, prompt: str, timeout: int = 120):
+        """流式调用大模型（单条 user 提示），逐块 yield 文本内容。"""
+        return self._stream_messages([{"role": "user", "content": prompt}], timeout)
+
+    # 与 Chatbox 保持一致：系统提示词用其默认值，不自定义人设、不限制回答长短。
+    # （公式显示端仍有 latex_fallback 做兕底，输出语言跟随用户提问的语言）
+    _CHAT_SYSTEM = "You are a helpful assistant."
+
+    def chat_stream(self, history: list, doc_text: str = "", timeout: int = 180):
+        """多轮对话问答，流式 yield 回答内容（温度固定 0，同 Chatbox 默认）。
+
+        history: [{"role": "user"/"assistant", "content": "..."}, ...]，不含系统消息。
+        doc_text: 当前阅读的文献全文（可选）。非空时像 Chatbox 附加文件一样，
+        作为首对 user/assistant 消息注入；系统提示词本身保持不变。
+        """
+        messages = [{"role": "system", "content": self._CHAT_SYSTEM}]
+        if doc_text.strip():
+            messages.append({
+                "role": "user",
+                "content": f"以下是我正在阅读的文献内容：\n\n{doc_text}",
+            })
+            messages.append({
+                "role": "assistant",
+                "content": "好的，我已了解上述文献内容，请提问。",
+            })
+        messages.extend(history)
+        return self._stream_messages(messages, timeout, temperature=0)
 
     def summarize_stream(self, text: str, lang: str = "zh"):
         """流式总结文本，逐块 yield 内容。"""

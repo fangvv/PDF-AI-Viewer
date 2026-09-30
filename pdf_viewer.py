@@ -1,6 +1,6 @@
 """PDF 阅读面板。
 
-使用 PyMuPDF (fitz) 渲染页面，支持：
+使用 PyMuPDF 渲染页面，支持：
 - 鼠标刷选文本（拖拽选择）
 - 滚轮翻页 / 滚动
 - 缩放
@@ -9,7 +9,7 @@
 性能优化：按需渲染，只渲染当前可见的页面，避免打开大 PDF 时卡顿。
 """
 
-import fitz  # PyMuPDF
+import pymupdf  # PyMuPDF
 import re
 
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QTimer
@@ -43,7 +43,7 @@ class PdfPageWidget(QWidget):
     linkClicked = pyqtSignal(str)
     internalLinkClicked = pyqtSignal(int, object)  # 目标页索引(0-based), 目标矩形
 
-    def __init__(self, page: fitz.Page, zoom: float, theme: str = "light", parent=None):
+    def __init__(self, page: pymupdf.Page, zoom: float, theme: str = "light", parent=None):
         super().__init__(parent)
         self.page = page
         self.zoom = zoom
@@ -66,13 +66,13 @@ class PdfPageWidget(QWidget):
         self._internal_links = []  # (rect, target_page, target_rect) 内部链接
         for link in page.get_links():
             if link.get("uri"):
-                self._links.append((fitz.Rect(link["from"]), link["uri"]))
+                self._links.append((pymupdf.Rect(link["from"]), link["uri"]))
             elif link.get("kind") == 1:  # 内部链接（跳转到文档内某页某位置）
                 target_page = link.get("page", 0)
                 target_rect = link.get("to")
                 if target_rect is not None:
                     self._internal_links.append(
-                        (fitz.Rect(link["from"]), target_page, fitz.Rect(target_rect))
+                        (pymupdf.Rect(link["from"]), target_page, pymupdf.Rect(target_rect))
                     )
         self._hover_link = None
 
@@ -80,7 +80,7 @@ class PdfPageWidget(QWidget):
         """返回位置 pos 处的链接 URI，无则返回 None。"""
         pdf_x = pos.x() / self.zoom
         pdf_y = pos.y() / self.zoom
-        point = fitz.Point(pdf_x, pdf_y)
+        point = pymupdf.Point(pdf_x, pdf_y)
         for rect, uri in self._links:
             if rect.contains(point):
                 return uri
@@ -90,7 +90,7 @@ class PdfPageWidget(QWidget):
         """返回位置 pos 处的内部链接 (target_page, target_rect)，无则返回 None。"""
         pdf_x = pos.x() / self.zoom
         pdf_y = pos.y() / self.zoom
-        point = fitz.Point(pdf_x, pdf_y)
+        point = pymupdf.Point(pdf_x, pdf_y)
         for rect, target_page, target_rect in self._internal_links:
             if rect.contains(point):
                 return target_page, target_rect
@@ -104,7 +104,7 @@ class PdfPageWidget(QWidget):
         self.update()
 
     def _render(self):
-        mat = fitz.Matrix(self.zoom, self.zoom)
+        mat = pymupdf.Matrix(self.zoom, self.zoom)
         pix = self.page.get_pixmap(matrix=mat, alpha=False)
         img = QImage(
             pix.samples,
@@ -227,7 +227,7 @@ class PdfPageWidget(QWidget):
         if self._sel_start is None or self._sel_end is None:
             return []
         rect = QRectF(self._sel_start, self._sel_end).normalized()
-        clip = fitz.Rect(
+        clip = pymupdf.Rect(
             rect.left() / self.zoom,
             rect.top() / self.zoom,
             rect.right() / self.zoom,
@@ -244,7 +244,7 @@ class PdfPageWidget(QWidget):
                     bbox = span.get("bbox")
                     if not bbox:
                         continue
-                    span_rect = fitz.Rect(bbox)
+                    span_rect = pymupdf.Rect(bbox)
                     # 判断 span 是否与刷选区域相交
                     if span_rect.intersects(clip):
                         selected.append((span.get("text", ""), *bbox))
@@ -362,7 +362,7 @@ class PdfViewer(QScrollArea):
         super().wheelEvent(event)
 
     def load_document(self, path: str):
-        self.doc = fitz.open(path)
+        self.doc = pymupdf.open(path)
         self._clear_pages()
         self._empty_label.hide()
         # 重新启用滚动条
@@ -386,7 +386,7 @@ class PdfViewer(QScrollArea):
 
         progress_callback(done, total) 在每页创建后调用。
         """
-        self.doc = fitz.open(path)
+        self.doc = pymupdf.open(path)
         self._clear_pages()
         self._empty_label.hide()
         # 重新启用滚动条
@@ -637,7 +637,7 @@ class PdfViewer(QScrollArea):
         return "\n\n".join(parts)
 
     def search(self, text: str) -> list:
-        """全文搜索，返回匹配列表 [(page_index, fitz.Rect), ...]（page_index 为 0-based）。"""
+        """全文搜索，返回匹配列表 [(page_index, pymupdf.Rect), ...]（page_index 为 0-based）。"""
         if not self.doc or not text:
             return []
         results = []

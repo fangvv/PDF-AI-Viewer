@@ -36,6 +36,8 @@ from PyQt6.QtWidgets import (
 
 from pdf_viewer import PdfViewer
 from translator import Translator, TranslationError
+from latex_fallback import latex_to_unicode
+from chat_window import ChatWindow
 import settings
 
 
@@ -92,6 +94,44 @@ class SummarizeWorker(QThread):
                     parts.append(piece)
                     self.chunk.emit(piece)
             self.finished.emit("".join(parts))
+        except TranslationError as exc:
+            self.failed.emit(str(exc))
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
+class ChatWorker(QThread):
+    """后台问答线程，流式输出，避免阻塞界面。"""
+
+    chunk = pyqtSignal(str)
+    finished = pyqtSignal(str, bool)   # (完整回答, 是否被用户中断)
+    failed = pyqtSignal(str)
+
+    def __init__(self, translator: Translator, history: list,
+                 doc_text: str = "", parent=None):
+        super().__init__(parent)
+        self.translator = translator
+        self.history = history
+        self.doc_text = doc_text
+        self._stop = False
+
+    def stop(self):
+        """请求中断（流循环下一次迭代时生效）。"""
+        self._stop = True
+
+    def run(self):
+        parts = []
+        stopped = False
+        try:
+            for piece in self.translator.llm.chat_stream(self.history,
+                                                         self.doc_text):
+                if self._stop:
+                    stopped = True
+                    break
+                if piece:
+                    parts.append(piece)
+                    self.chunk.emit(piece)
+            self.finished.emit("".join(parts), stopped or self._stop)
         except TranslationError as exc:
             self.failed.emit(str(exc))
         except Exception as exc:  # noqa: BLE001
@@ -178,51 +218,9 @@ class SummaryWindow(QWidget):
     def _latex_to_unicode(text: str) -> str:
         """把常见的 LaTeX 数学公式转成可读的 Unicode 纯文本（兜底处理）。
 
-        主要处理行内/块级公式定界符与常用命令，避免显示成原始 LaTeX 代码。
+        实现抽到 latex_fallback 模块，与问答窗口共用。
         """
-        import re
-        # 去掉公式定界符：$$...$$、$...$、\(...\)、\[...\]
-        text = re.sub(r"\$\$(.+?)\$\$", r"\1", text, flags=re.S)
-        text = re.sub(r"\$(.+?)\$", r"\1", text, flags=re.S)
-        text = re.sub(r"\\\[(.+?)\\\]", r"\1", text, flags=re.S)
-        text = re.sub(r"\\\((.+?)\\\)", r"\1", text, flags=re.S)
-        # 常用 LaTeX 命令 → Unicode
-        replacements = {
-            r"\times": "×", r"\cdot": "·", r"\pm": "±", r"\mp": "∓",
-            r"\leq": "≤", r"\geq": "≥", r"\neq": "≠", r"\approx": "≈",
-            r"\infty": "∞", r"\alpha": "α", r"\beta": "β", r"\gamma": "γ",
-            r"\delta": "δ", r"\epsilon": "ε", r"\theta": "θ",
-            r"\lambda": "λ", r"\mu": "μ", r"\sigma": "σ", r"\omega": "ω",
-            r"\pi": "π", r"\sum": "∑", r"\prod": "∏", r"\int": "∫",
-            r"\sqrt": "√", r"\partial": "∂", r"\nabla": "∇",
-            r"\rightarrow": "→", r"\leftarrow": "←", r"\in": "∈",
-            r"\notin": "∉", r"\subset": "⊂", r"\subseteq": "⊆",
-            r"\cup": "∪", r"\cap": "∩", r"\forall": "∀", r"\exists": "∃",
-        }
-        for k, v in replacements.items():
-            text = text.replace(k, v)
-        # 上标：^{...} → Unicode 上标（仅数字/常见字母）
-        sup_map = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
-                   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
-                   "+": "⁺", "-": "⁻", "n": "ⁿ", "i": "ⁱ"}
-        def _sup(m):
-            inner = m.group(1)
-            return "".join(sup_map.get(c, c) for c in inner)
-        text = re.sub(r"\^\{([^{}]+)\}", _sup, text)
-        text = re.sub(r"\^([0-9+\-ni])", lambda m: sup_map.get(m.group(1), m.group(1)), text)
-        # 下标：_{...} → Unicode 下标（仅数字）
-        sub_map = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
-                   "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
-                   "+": "₊", "-": "₋", "i": "ᵢ", "n": "ₙ"}
-        def _sub(m):
-            inner = m.group(1)
-            return "".join(sub_map.get(c, c) for c in inner)
-        text = re.sub(r"_\{([^{}]+)\}", _sub, text)
-        text = re.sub(r"_([0-9+\-in])", lambda m: sub_map.get(m.group(1), m.group(1)), text)
-        # 分数：\frac{a}{b} → (a)/(b)
-        text = re.sub(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1)/(\2)", text)
-        # 清理残留的反斜杠命令（保留未知命令原样，避免误删）
-        return text
+        return latex_to_unicode(text)
 
     def show_error(self, error: str):
         """显示错误信息。"""
@@ -278,6 +276,8 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+-"), self, activated=lambda: self._zoom_pdf(-1))
         # Ctrl + L 切换全屏
         QShortcut(QKeySequence("Ctrl+L"), self, activated=self._toggle_fullscreen)
+        # Ctrl + Shift + Q 呼出 AI 阅读问答（Ctrl+Q 已被菜单里的「退出」占用）
+        QShortcut(QKeySequence("Ctrl+Shift+Q"), self, activated=self._open_chat)
 
     def _zoom_pdf(self, delta: int):
         """用快捷键调节 PDF 缩放比例。"""
@@ -325,6 +325,12 @@ class MainWindow(QMainWindow):
 
         # AI 总结独立窗口
         self.summary_window = SummaryWindow(self)
+
+        # AI 阅读问答独立窗口（非模态，可与阅读并行）
+        self.chat_window = ChatWindow(self, icon_path=resource_path("logo.ico"))
+        self.chat_window.ask.connect(self._on_chat_ask)
+        self.chat_window.stop_requested.connect(self._on_chat_stop)
+        self.chat_worker = None
 
         # 右侧翻译面板
         right_panel = QWidget()
@@ -449,6 +455,14 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut(QKeySequence.StandardKey.Quit)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        # 工具菜单
+        tools_menu = menubar.addMenu("工具")
+        chat_action = QAction("AI 阅读问答", self)
+        chat_action.setShortcut(QKeySequence("Ctrl+Shift+Q"))
+        chat_action.triggered.connect(self._open_chat)
+        tools_menu.addAction(chat_action)
+        self.menu_chat_action = chat_action
 
         # 设置菜单
         settings_menu = menubar.addMenu("设置")
@@ -705,6 +719,13 @@ class MainWindow(QMainWindow):
         toolbar.addAction(summary_action)
         self.summary_action = summary_action
 
+        # AI 阅读问答（边读边问）
+        self.chat_action = QAction("AI 问答", self)
+        self.chat_action.setToolTip("随时向大模型提问，问答自动存进同名 .md（Ctrl+Shift+Q）")
+        self.chat_action.triggered.connect(self._open_chat)
+        self.chat_action.setEnabled(False)
+        toolbar.addAction(self.chat_action)
+
         toolbar.addSeparator()
 
         # 页码导航
@@ -801,6 +822,8 @@ class MainWindow(QMainWindow):
     # ---------- 事件 ----------
     def _on_page_changed(self, page, total):
         self.page_label.setText(f"第 {page} / {total} 页")
+        # 问答窗口记录当前页，写进笔记方便回查
+        self.chat_window.set_page(page)
         # 避免触发 valueChanged 循环
         self.page_spin.blockSignals(True)
         self.page_spin.setMinimum(1)
@@ -1000,6 +1023,83 @@ class MainWindow(QMainWindow):
     def _on_summary_failed(self, error):
         self.summary_window.show_error(error)
 
+    # ---------- AI 阅读问答 ----------
+    # 发给模型的上下文上限（轮数 / 字符），避免长对话撞破模型上下文窗口
+    CHAT_MAX_TURNS = 12
+    CHAT_MAX_CHARS = 12000
+    # 随每次提问附带的文献全文上限，与全文总结一致（同 Chatbox 附加文件的做法）
+    CHAT_DOC_CHARS = 60000
+
+    def _open_chat(self):
+        """呼出问答窗口（非模态，不影响继续阅读 PDF）。"""
+        self.chat_window.show()
+        self.chat_window.raise_()
+        self.chat_window.activateWindow()
+        self.chat_window.focus_question()
+        if not self.current_pdf:
+            self.status.showMessage("尚未打开 PDF，问答窗口需先打开文献才能保存记录")
+
+    def _build_chat_history(self, question: str) -> list:
+        """把已有问答拼成多轮 messages，并限制长度。"""
+        history = []
+        for item in reversed(self.chat_window.exchanges):
+            if len(history) // 2 >= self.CHAT_MAX_TURNS:
+                break
+            history.insert(0, {"role": "assistant", "content": item["a"]})
+            history.insert(0, {"role": "user", "content": item["q"]})
+        # 从最早的轮次开始丢弃，直到总字符数降到预算内
+        def _total():
+            return sum(len(m["content"]) for m in history)
+        while len(history) > 2 and _total() > self.CHAT_MAX_CHARS:
+            history = history[2:]
+        history.append({"role": "user", "content": question})
+        return history
+
+    def _on_chat_ask(self, question: str):
+        """用户提问：开后台线程流式请求大模型。"""
+        # 上一个请求可能刚被「停止」但线程未完全退出：先收尾并断开信号，
+        # 否则它迟到的 finished 信号会泄入下一轮对话
+        if self.chat_worker is not None:
+            if self.chat_worker.isRunning():
+                self.chat_worker.stop()
+                self.chat_worker.wait(3000)
+            for signal in (self.chat_worker.chunk, self.chat_worker.finished,
+                           self.chat_worker.failed):
+                try:
+                    signal.disconnect()
+                except TypeError:  # 本来就没连接
+                    pass
+        history = self._build_chat_history(question)
+        # 把当前文献全文像 Chatbox 附加文件一样随提问带上；无 PDF 或
+        # 提取不到文本（扫描件）则为空，退回纯对话模式。
+        # 必须在 GUI 线程取文本：pymupdf 与渲染共用同一文档，跨线程访问不安全
+        doc_text = ""
+        if self.viewer.page_widgets:
+            doc_text = self.viewer.document_text(max_chars=self.CHAT_DOC_CHARS)
+        self.chat_window.begin_answer()
+        self.chat_worker = ChatWorker(self.translator, history, doc_text)
+        self.chat_worker.chunk.connect(self.chat_window.append_chunk)
+        self.chat_worker.finished.connect(self._on_chat_done)
+        self.chat_worker.failed.connect(self._on_chat_failed)
+        self.chat_worker.start()
+
+    def _on_chat_stop(self):
+        """用户点「停止」：中断流式输出。"""
+        if self.chat_worker is not None and self.chat_worker.isRunning():
+            self.chat_worker.stop()
+            self.status.showMessage("正在中断回答…")
+
+    def _on_chat_done(self, answer: str, stopped: bool):
+        if stopped:
+            self.status.showMessage("回答已中断")
+        else:
+            self.status.showMessage("回答完成")
+        self.chat_window.finish_answer(answer, stopped)
+
+    def _on_chat_failed(self, error: str):
+        self.chat_window.show_answer_error(error)
+        self.status.showMessage("问答失败")
+
     # ---------- 文件 ----------
     def open_pdf(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -1045,6 +1145,10 @@ class MainWindow(QMainWindow):
         # 启用关闭/总结按钮
         self.close_action.setEnabled(True)
         self.summary_action.setEnabled(True)
+        self.chat_action.setEnabled(True)
+        self.menu_chat_action.setEnabled(True)
+        # 切换到这份 PDF 的问答记录（同目录同名 .md）
+        self.chat_window.load_pdf(self.current_pdf)
         # 启用页码导航
         self.page_label.setEnabled(True)
         self.page_prefix_label.setEnabled(True)
@@ -1081,6 +1185,10 @@ class MainWindow(QMainWindow):
         # 禁用关闭/总结按钮
         self.close_action.setEnabled(False)
         self.summary_action.setEnabled(False)
+        self.chat_action.setEnabled(False)
+        self.menu_chat_action.setEnabled(False)
+        # 清空问答会话（已写入 .md 的内容不会丢）
+        self.chat_window.reset_session()
         # 禁用页码导航
         self.page_label.setEnabled(False)
         self.page_prefix_label.setEnabled(False)
@@ -1159,6 +1267,8 @@ class MainWindow(QMainWindow):
         # PDF 阅读区空状态提示 + 页面主题
         self.viewer.set_empty_style(theme)
         self.viewer.set_theme(theme)
+        # 问答窗口跟随主题
+        self.chat_window.set_theme(theme)
 
     def _restore_settings(self):
         s = settings.load_settings()
@@ -1183,12 +1293,21 @@ class MainWindow(QMainWindow):
                 pass
         if s.get("window_maximized"):
             QTimer.singleShot(0, self.showMaximized)
+        # 恢复问答窗口位置
+        chat_geometry = s.get("chat_geometry")
+        if chat_geometry:
+            try:
+                self.chat_window.restoreGeometry(
+                    QByteArray(bytes.fromhex(chat_geometry)))
+            except (ValueError, TypeError):
+                pass
 
     def _save_settings(self):
         # 先读取已有配置，避免覆盖掉大模型设置（llm_base_url / llm_model）
         s = settings.load_settings()
         s["splitter_sizes"] = self.splitter.sizes()
         s["font_size"] = self.font_size
+        s["chat_geometry"] = bytes(self.chat_window.saveGeometry()).hex()
         settings.save_settings(s)
 
     def _save_window_state(self):
@@ -1238,6 +1357,10 @@ class MainWindow(QMainWindow):
 
     # ---------- 关闭 ----------
     def closeEvent(self, event):
+        # 先收尾问答线程，避免退出时 “QThread destroyed while running”
+        if getattr(self, "chat_worker", None) is not None and self.chat_worker.isRunning():
+            self.chat_worker.stop()
+            self.chat_worker.wait(2000)
         # 自动记录阅读位置
         if self.current_pdf:
             settings.save_position(

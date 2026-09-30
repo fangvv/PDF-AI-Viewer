@@ -26,6 +26,13 @@ def _settings_file() -> str:
     return os.path.join(_config_dir(), "settings.json")
 
 
+def chatnotes_dir() -> str:
+    """问答笔记回退目录：当 PDF 所在目录不可写时，把 .md 写到这里。"""
+    path = os.path.join(_config_dir(), "chatnotes")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def _recent_file() -> str:
     return os.path.join(_config_dir(), "recent.json")
 
