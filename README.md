@@ -1,12 +1,105 @@
+<div align="center">
+
+<img src="logo.png" alt="PDF 阅读翻译器" width="110" />
+
 # PDF 阅读翻译器 / PDF Reader & Translator
 
-一个类似「知云文献翻译」的桌面 PDF 阅读翻译工具，使用 Python + PyQt6 开发。
+读英文文献太慢？划词即译，一句话让 AI 总结整篇论文，读完自动变成你自己的 `.md` 笔记。
+**免费、开源、单文件免安装。**
 
-A desktop PDF reader & translator similar to "Zhiyun Literature Translation", built with Python + PyQt6.
+A desktop PDF reader with select-to-translate, AI full-document summary and ask-the-paper chat.
+**Free, open source, single-file portable.**
 
-左侧查看 PDF，右侧显示翻译结果；用鼠标刷选 PDF 内容即可翻译，支持记录阅读位置，下次从上次位置继续阅读。
+[![Stars](https://img.shields.io/github/stars/fangvv/PDF-AI-Viewer?style=social)](https://github.com/fangvv/PDF-AI-Viewer/stargazers)
+[![Forks](https://img.shields.io/github/forks/fangvv/PDF-AI-Viewer?style=social)](https://github.com/fangvv/PDF-AI-Viewer/forks)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Platform Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](#-快速开始--quick-start)
 
-View the PDF on the left and the translation on the right. Select text in the PDF with your mouse to translate it. Your reading position is remembered so you can resume where you left off.
+</div>
+
+> 面向研究生、科研党，以及任何需要大量阅读英文文献的人。
+> Built for graduate students, researchers, and anyone who has to read a lot of English papers.
+
+---
+
+## 📖 目录 / Table of Contents
+
+- [快速开始](#-快速开始--quick-start)
+- [界面一览](#-界面一览--screenshots)
+- [为什么选它](#-为什么选它--why-this-one)
+- [功能特性](#功能特性--features)
+- [使用说明](#使用说明--usage)
+- [大模型设置](#大模型设置--llm-settings)
+- [边读边问](#边读边问--ask-while-reading)
+- [常见问题](#-常见问题--faq)
+- [安装与运行（源码）](#安装与运行源码--installation--run-from-source)
+- [项目结构](#项目结构--project-structure)
+- [技术栈](#技术栈--tech-stack)
+- [翻译引擎](#翻译引擎--translation-engines)
+- [许可证](#许可证--license)
+
+---
+
+## 🚀 快速开始 / Quick Start
+
+**Windows 用户：下载这一个文件，双击即用。不需要装 Python，不需要配环境。**
+
+1. 下载 `PDF阅读翻译器.exe`（约 60 MB，免安装便携版）
+2. 双击打开，把 PDF 拖进窗口
+3. 刷选文本点「翻译」即可 —— **微软 Edge / MyMemory 引擎无需任何 API Key，开箱即用**
+4. 只有想用「大模型翻译 / 全文总结 / AI 问答」时，才需要在「设置 → 大模型设置」填一次 Key
+
+👉 **[⬇ 下载 Windows 免安装版](https://github.com/fangvv/PDF-AI-Viewer/raw/main/dist/PDF%E9%98%85%E8%AF%BB%E7%BF%91%E8%AF%91%E5%99%A8.exe)**
+
+> 也可以到 [Releases](https://github.com/fangvv/PDF-AI-Viewer/releases) 或仓库的 `dist/` 目录获取。
+
+**Windows users: download one file and double-click it. No Python, no environment setup.**
+
+1. Download `PDF阅读翻译器.exe` (~60 MB, portable build)
+2. Double-click it and drag a PDF into the window
+3. Select text and click "Translate" — the **Microsoft Edge / MyMemory engines need no API key at all**
+4. A key is only required for LLM translation / summary / AI chat, configured once under "Settings → LLM Settings"
+
+不想下载 exe？[从源码运行](#安装与运行源码--installation--run-from-source) 只需 3 行命令。
+Prefer the source? [Run from source](#安装与运行源码--installation--run-from-source) in 3 commands.
+
+---
+
+## 📸 界面一览 / Screenshots
+
+主界面：左侧 PDF，右侧翻译，中间浮着 AI 总结报告（日间主题）
+
+Main window: PDF on the left, translation on the right, AI summary report floating in the middle
+
+![主界面与 AI 总结](screenshot1.png)
+
+| AI 阅读问答：整篇文献随行，问完即成笔记<br>AI chat: the whole paper as context, every Q&A becomes a note | 大模型设置：任意 OpenAI 兼容服务商，模型可下拉拉取<br>LLM settings: any OpenAI-compatible provider |
+| :---: | :---: |
+| ![AI 阅读问答](screenshot3.png) | ![大模型设置](screenshot2.png) |
+
+> 夜间模式下 PDF 页面会自动反色（白底变黑底），问答窗口同步切换主题。
+> In dark mode PDF pages are automatically inverted and the chat window follows the theme.
+
+---
+
+## ⭐ 为什么选它 / Why This One
+
+| 读文献时 | 没有工具的日子 | 用本项目 |
+| --- | --- | --- |
+| 遇到生词长句 | 复制到翻译网页，窗口来回切 | 刷选文本，翻译按钮就在鼠标旁，原地出译文 |
+| 想知道论文讲了什么 | 从头读到尾，自己抄要点 | 「全文总结」一键生成结构化报告，流式输出 |
+| 有疑问要追问 | 手动复制段落去问大模型 | 「AI 问答」自动带上整篇文献，多轮追问 |
+| 读完留个记录 | 新建文档一条条敲 | 问答自动写进同名 `.md`，重开文献即恢复 |
+| 晚上读文献 | 白底屏幕刺眼 | 夜间模式，PDF 页面自动反色 |
+| 二次开发 / 自己接模型 | 没门 | MIT 开源，支持任意 OpenAI 兼容接口 |
+
+> 本表只对照「没有工具时的手工流程」，**不评价其他任何软件**。上表本项目一栏均为当前版本的实际能力，其余以各软件官方说明为准。
+
+一句话：它不只是「多一个翻译按钮」，而是把**读完一篇论文**做成一条流水线 —— 划词翻译 → 全文总结 → 边读边问 → 自动生成笔记。
+
+In short: not just "another translate button" — it turns *finishing a paper* into one pipeline:
+select-to-translate → full-document summary → ask the paper → notes written automatically.
 
 ---
 
@@ -51,32 +144,6 @@ View the PDF on the left and the translation on the right. Select text in the PD
 - 🔐 **Secure API key storage**: LLM key is stored in the Windows Credential Manager (keyring), never in plaintext
 - 🕐 **Status bar clock**: shows the current date and time in the bottom-right corner, plus the active translation engine on the left
 - 🎨 **Polished UI**: card-based right panel (rounded corners + shadow), Markdown rendering for translation results, fade-in animation for the floating button, adjustable translation font, built-in logo, About dialog (with website link)
-
----
-
-## 安装 / Installation
-
-需要 Python 3.9+。
-
-Requires Python 3.9+.
-
-```bash
-# 克隆仓库 / Clone the repository
-git clone https://github.com/fangvv/PDF-AI-Viewer.git
-cd PDF-AI-Viewer
-
-# 安装依赖 / Install dependencies
-pip install -r requirements.txt
-
-# 国内用户可使用清华源加速 / Chinese users can use the Tsinghua mirror
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-## 运行 / Run
-
-```bash
-python main.py
-```
 
 ---
 
@@ -171,6 +238,79 @@ If the PDF's folder is not writable (read-only media, file locked by another pro
 
 ---
 
+## ❓ 常见问题 / FAQ
+
+| 问题 | 回答 |
+| --- | --- |
+| 免费吗？会不会有广告、会员、次数限制？ | 完全免费开源（MIT），无广告、无会员、不限次数 |
+| 一定要填 API Key 才能用吗？ | 不需要。划词翻译选「微软 Edge / MyMemory」开箱即用；只有 AI 总结、AI 问答、大模型翻译需要 Key |
+| 我的 API Key 安全吗？ | Key 只存在本机的 Windows 凭据管理器中，不写进配置文件、不上传、不发送到除服务商以外的任何地方 |
+| AI 会把我的论文传到云上吗？ | 只有在你使用大模型相关功能时，文本才会按你填的接口地址发给对应服务商；纯翻译用 Edge / MyMemory 走各自的公开接口 |
+| 有 exe 还要装 Python 吗？ | 不用，`dist/PDF阅读翻译器.exe` 双击即用，配置也只写在用户目录 |
+| 支持 macOS / Linux 吗？ | 目前只提供 Windows 版。核心是 Python + PyQt6，跨平台移植门槛不高，欢迎提 Issue / PR |
+| 几百页的论文会卡吗？ | 页面按需渲染，滚动大文件依然流畅 |
+| 扫描版 PDF（纯图片）能用吗？ | 翻译与总结依赖可提取的文本；提取不出文本时 AI 问答会自动退回普通对话（软件本身暂不含 OCR） |
+| 界面能改吗？想二次开发 | 可以，MIT 许可，代码结构见[项目结构](#项目结构--project-structure)，`AGENTS.md` 里有开发约定 |
+
+| Question | Answer |
+| --- | --- |
+| Is it free? Any ads, plans or quotas? | Completely free and open source (MIT). No ads, no paid plans, no usage caps |
+| Do I need an API key to use it? | No. Select-to-translate works out of the box with Microsoft Edge / MyMemory; a key is only needed for LLM translation, summary and AI chat |
+| Is my API key safe? | It is stored only in your local Windows Credential Manager — never in a config file, never uploaded anywhere except to the provider you configured |
+| Does the AI upload my paper to the cloud? | Only when you use LLM features, and only to the provider endpoint you typed in |
+| Do I need Python if there is an exe? | No — `dist/PDF阅读翻译器.exe` just runs; settings are kept in your user folder |
+| macOS / Linux support? | Windows-only for now. The core is Python + PyQt6, so a port is not far off — Issues and PRs welcome |
+| Will a 500-page paper lag? | Pages render on demand, so scrolling large files stays smooth |
+| What about scanned (image-only) PDFs? | Translation and summary rely on extractable text; if there is none, AI chat falls back to plain conversation (the app has no built-in OCR yet) |
+| Can I modify it / build on it? | Yes, MIT licensed — see the [project structure](#项目结构--project-structure); `AGENTS.md` documents the conventions |
+
+---
+
+## 安装与运行（源码）/ Installation & Run (from Source)
+
+需要 Python 3.9+。
+
+Requires Python 3.9+.
+
+```bash
+# 克隆仓库 / Clone the repository
+git clone https://github.com/fangvv/PDF-AI-Viewer.git
+cd PDF-AI-Viewer
+
+# 安装依赖 / Install dependencies
+pip install -r requirements.txt
+
+# 国内用户可使用清华源加速 / Chinese users can use the Tsinghua mirror
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 运行 / Run
+python main.py
+```
+
+打包自己的 exe（需先安装 PyInstaller）/ Build your own exe (requires PyInstaller):
+
+```bash
+pyinstaller --noconfirm "PDF阅读翻译器.spec"
+# 产物 / Output: dist/PDF阅读翻译器.exe
+```
+
+---
+
+## 🤝 反馈与贡献 / Feedback & Contributing
+
+- 遇到问题、想要新功能：[提 Issue](https://github.com/fangvv/PDF-AI-Viewer/issues)
+- 欢迎 PR：先开 Issue 说明改动思路，再提 PR 更容易被合入
+- 想参与开发：先看 [AGENTS.md](AGENTS.md)，里面记录了工程约定与打包坑
+
+- Found a bug or want a feature? [Open an Issue](https://github.com/fangvv/PDF-AI-Viewer/issues)
+- PRs welcome — opening an Issue first makes yours easier to review
+- Want to hack on it? Start with [AGENTS.md](AGENTS.md) for conventions and packaging gotchas
+
+> 如果这个工具帮你省下了一点读文献的时间，**点个 ⭐ 就是最快的支持**。
+> If it saved you some time on papers, **a ⭐ is the quickest way to say thanks**.
+
+---
+
 ## 项目结构 / Project Structure
 
 ```
@@ -187,6 +327,7 @@ pdf_translator/
 ├── AGENTS.md        # 给 AI 助手/开发者的工程说明与约定
 ├── LICENSE          # MIT 许可证
 ├── dist/            # 打包产物（PDF阅读翻译器.exe）
+├── screenshot1/2/3.png  # 界面截图
 └── logo.ico / logo.png  # 应用图标
 ```
 
