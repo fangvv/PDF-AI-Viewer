@@ -68,18 +68,17 @@ Prefer the source? [Run from source](#安装与运行源码--installation--run-f
 
 ## 📸 界面一览 / Screenshots
 
-主界面：左侧 PDF，右侧翻译，中间浮着 AI 总结报告（日间主题）
+左侧阅读 PDF，右侧看译文，中间浮着 AI 总结报告。夜间模式下 PDF 页面自动反色（白底变黑底），工具栏、翻译面板与问答窗口同步切换。
 
-Main window: PDF on the left, translation on the right, AI summary report floating in the middle
+PDF on the left, translation on the right, AI summary report floating in the middle. In dark mode PDF pages are automatically inverted, and the toolbar, translation panel and chat window follow the theme.
 
-![主界面与 AI 总结](screenshot1.png)
+| 日间主题：主界面与 AI 总结<br>Light: main window with the AI summary | 夜间主题：PDF 页面自动反色<br>Dark: PDF pages automatically inverted |
+| :---: | :---: |
+| ![日间主题：主界面与 AI 总结](screenshot1.png) | ![夜间主题：PDF 反色](screenshot4.png) |
 
 | AI 阅读问答：整篇文献随行，问完即成笔记<br>AI chat: the whole paper as context, every Q&A becomes a note | 大模型设置：任意 OpenAI 兼容服务商，模型可下拉拉取<br>LLM settings: any OpenAI-compatible provider |
 | :---: | :---: |
 | ![AI 阅读问答](screenshot3.png) | ![大模型设置](screenshot2.png) |
-
-> 夜间模式下 PDF 页面会自动反色（白底变黑底），问答窗口同步切换主题。
-> In dark mode PDF pages are automatically inverted and the chat window follows the theme.
 
 ---
 
@@ -327,7 +326,7 @@ pdf_translator/
 ├── AGENTS.md        # 给 AI 助手/开发者的工程说明与约定
 ├── LICENSE          # MIT 许可证
 ├── dist/            # 打包产物（PDF阅读翻译器.exe）
-├── screenshot1/2/3.png  # 界面截图
+├── screenshot1–4.png    # 界面截图（日间/夜间/问答/大模型设置）
 └── logo.ico / logo.png  # 应用图标
 ```
 
