@@ -78,7 +78,7 @@ PDF on the left, translation on the right, AI summary report floating in the mid
 
 | AI 阅读问答：整篇文献随行，问完即成笔记<br>AI chat: the whole paper as context, every Q&A becomes a note | 大模型设置：任意 OpenAI 兼容服务商，模型可下拉拉取<br>LLM settings: any OpenAI-compatible provider |
 | :---: | :---: |
-| ![AI 阅读问答](screenshot3.png) | ![大模型设置](screenshot2.png) |
+| ![AI 阅读问答](screenshot2.png) | ![大模型设置](screenshot3.png) |
 
 ---
 
@@ -326,7 +326,7 @@ pdf_translator/
 ├── AGENTS.md        # 给 AI 助手/开发者的工程说明与约定
 ├── LICENSE          # MIT 许可证
 ├── dist/            # 打包产物（PDF阅读翻译器.exe）
-├── screenshot1–4.png    # 界面截图（日间/夜间/问答/大模型设置）
+├── screenshot1–4.png    # 界面截图（日间主界面 / 问答 / 大模型设置 / 夜间）
 └── logo.ico / logo.png  # 应用图标
 ```
 
